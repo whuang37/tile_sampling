@@ -4,6 +4,8 @@ import math
 import os
 import constants
 import time
+from database import Database
+
 """
 Notes/Design
 
@@ -27,8 +29,8 @@ class Application(tk.Frame):
         tk.Frame.__init__(self, master)
         self.master.title("Tile Sampling")
         
-        self.cur_img_num = tk.IntVar()
-        self.cur_img_num.set(5)
+        self.cur_tile = tk.IntVar()
+        self.cur_tile.set(5)
         self.cur_img = self.format_image((1, 1, 1))
         self.img_width, self.img_height = self.cur_img.size
         
@@ -78,7 +80,7 @@ class Application(tk.Frame):
     def create_navigator(self):
         self.navigator = tk.Frame(self.master)
         self.navigator.grid(row=3, column=1, columnspan=3)
-        self.n_text = tk.Label(self.navigator, text = str(self.cur_img_num.get()), font = ("Calibri", 30))
+        self.n_text = tk.Label(self.navigator, text = str(self.cur_tile.get()), font = ("Calibri", 30))
         self.n_text.grid(row = 1, column = 1, pady = 25, padx = 25)
         
         self.n_forward_button = tk.Button(self.navigator, text =">", font = ("Calibri", 20),
@@ -99,21 +101,21 @@ class Application(tk.Frame):
         self.finished.grid(row = 3, column = 1)
         
     def _forward(self):
-        if self.cur_img_num.get() < constants.grids_h * constants.grids_w:
-            self.cur_img_num.set(self.cur_img_num.get() + 1)
+        if self.cur_tile.get() < constants.grids_h * constants.grids_w:
+            self.cur_tile.set(self.cur_tile.get() + 1)
         else: 
             return
-        self.n_text.configure(text = str(self.cur_img_num.get()))
+        self.n_text.configure(text = str(self.cur_tile.get()))
         self.n_text.update()
         
         self._update_image()
         
     def _backward(self):
-        if self.cur_img_num.get() > 0:
-            self.cur_img_num.set(self.cur_img_num.get() - 1)
+        if self.cur_tile.get() > 0:
+            self.cur_tile.set(self.cur_tile.get() - 1)
         else:
             return
-        self.n_text.configure(text = str(self.cur_img_num.get()))
+        self.n_text.configure(text = str(self.cur_tile.get()))
         self.n_text.update()
         
         self._update_image()
@@ -128,14 +130,12 @@ class Application(tk.Frame):
     def create_image_canvas(self):
         self.canvas = tk.Canvas(self.master, highlightthickness=0)
         self.canvas.grid(row=1, column=1, sticky="nswe")
-        #self.canvas.config(width=self.img_width, height = self.img_height)
         self.zoomed_canvas = tk.Canvas(self.master, highlightthickness=0)
         self.zoomed_canvas.grid(row=1, column=3, sticky="nswe")
-        #self.zoomed_canvas.config(width=self.img_width, height=self.img_height)
         self.canvas.focus_set()
     
     def format_image(self, *intensity): # changing color channels of the picture
-        cur_img_path = os.path.join(parent_dir, "images", f"{self.cur_img_num.get()}.tif")
+        cur_img_path = os.path.join(parent_dir, "images", f"{self.cur_tile.get()}.tif")
         cur_img = Image.open(cur_img_path)
         
         if not intensity:
@@ -159,18 +159,20 @@ class Application(tk.Frame):
     def _markers(self, event, m_type):
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
+        self.create_marker(m_type, self.cur_tile.get(), x, y)
         
+        Database(parent_dir).add_value(m_type, self.cur_tile.get(), x, y)
+        
+    def create_marker(self, m_type, tile_id, x, y):
         color = constants.marker_color[m_type]
         
-        tag = f"{self.cur_img_num.get()}_{x}_{y}"
-        # self.canvas.create_text(x, y - 20, font = ("Calibri", 15, "bold"), fill = color,
-        #                                text = str(num), tag = tag)
+        tag = f"{tile_id}_{x}_{y}"
         
         self.canvas.create_line(x , y + 3, x, y + 10, fill = color, width = 2, tag = tag)
         self.canvas.create_line(x , y - 3, x, y - 10, fill = color, width = 2, tag = tag)
         self.canvas.create_line(x + 3, y, x + 10, y, fill = color, width = 2, tag = tag)
         self.canvas.create_line(x - 3, y, x - 10, y, fill = color, width = 2, tag = tag)
-        self.canvas.tag_bind(tag, '<ButtonPress-1>', lambda event, tag = tag: self._on_click(event, tag))
+        self.canvas.tag_bind(tag, '<ButtonPress-1>', lambda event, tag = tag, tile = tile_id, x = x, y = y: self._on_click(event, tag, tile, x, y))
         self.canvas.tag_bind(tag, '<Enter>', lambda event, tag = tag: self._on_enter(event, tag))
         self.canvas.tag_bind(tag, '<Leave>', lambda event, tag = tag: self._on_leave(event, tag, color))
         self.canvas.update() 
@@ -181,9 +183,10 @@ class Application(tk.Frame):
     def _on_leave(self, event, tag, color):
         self.canvas.itemconfig(tag, fill=color)
     
-    def _on_click(self, event, tag):
+    def _on_click(self, event, tag, tile, x, y):
         self.canvas.delete(tag)
         
+        Database(parent_dir).delete_value(tile, x, y)
 class GridImages:
     def __init__(self, unzoomed, zoomed, img):
         self.unzoomed = unzoomed # canvas for unzoomed image
