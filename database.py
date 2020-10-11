@@ -2,6 +2,8 @@ import sqlite3
 import csv
 from shutil import copy
 import os
+import numpy as np
+import h5py
 class Database:
     def __init__(self, folder_path):
         self.folder_path = folder_path
@@ -19,7 +21,7 @@ class Database:
         self.c.close()
         self.conn.close()
     
-    def initiate(self):
+    def initiate(self, array_path):
         create_table_query = '''CREATE TABLE IF NOT EXISTS annotations (TYPE TEXT NOT NULL,
                                                                         TILE_ID INTEGER NOT NULL,
                                                                         X INTEGER NOT NULL,
@@ -42,6 +44,12 @@ class Database:
         self.c.executemany(add_grid_query, grid_completion)
         
         self.close()
+        
+        array = np.load(array_path)
+        save_path = os.path.join(self.folder_path, "tile_array.h5")
+        with h5py.File(save_path, "w") as hf:
+            hf.create_dataset("tiles", data=array)
+        
         
     def add_value(self, m_type, TILE_ID, x, y):
         data_values = (m_type, TILE_ID, x, y)

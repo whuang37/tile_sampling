@@ -5,7 +5,8 @@ import os
 import constants
 import time
 from database import Database
-
+import numpy as np
+import h5py
 """
 Notes/Design
 
@@ -30,7 +31,8 @@ class Application(tk.Frame):
         self.master.title("Tile Sampling")
         
         self.cur_tile = tk.IntVar()
-        self.cur_tile.set(5)
+        self.cur_tile.set(0)
+        
         self.cur_img = self.format_image((1, 1, 1))
         self.img_width, self.img_height = self.cur_img.size
         
@@ -38,40 +40,33 @@ class Application(tk.Frame):
         gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
         self.create_scrollbar()
         
+        self.master.rowconfigure(1, weight=1)
+        self.master.columnconfigure(1, weight=1)
+        self.master.columnconfigure(3, weight =1)
+        
         self.create_marker_binds()
         self.create_navigator()
         
     def create_scrollbar(self):
-        vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
-        vbar.grid(row=1, column=2, sticky='ns')
-        hbar = tk.Scrollbar(self.master, orient='horizontal', command=self.canvas.xview)
-        hbar.grid(row=2, column=1, sticky='we')
+        self.vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
+        self.vbar.grid(row=1, column=2, sticky='ns')
+        self.hbar = tk.Scrollbar(self.master, orient='horizontal', command=self.canvas.xview)
+        self.hbar.grid(row=2, column=1, sticky='we')
         
-        self.canvas.configure(xscrollcommand=hbar.set, yscrollcommand=vbar.set,
+        self.canvas.configure(xscrollcommand=self.hbar.set, yscrollcommand=self.vbar.set,
                               xscrollincrement='2', yscrollincrement='2', scrollregion=self.canvas.bbox("all"))
         self.canvas.update()
-        
-        self.master.rowconfigure(1, weight=1)
-        self.master.columnconfigure(1, weight=1)
-        self.master.columnconfigure(3, weight =1)
         self.canvas.bind('<MouseWheel>', self.verti_wheel)
         self.canvas.bind('<Shift-MouseWheel>', self.hori_wheel) 
         
+        
     def verti_wheel(self, event):
-        """Event method that scrolls the image vertically using the mousewheel.
-
-        Scrolls the image 20 units up or down depending on the direction of the mousewheel input.
-        """
         if event.num == 5 or event.delta == -120:  # scroll down
             self.canvas.yview('scroll', 20, 'units')
         if event.num == 4 or event.delta == 120:
             self.canvas.yview('scroll', -20, 'units')
 
     def hori_wheel(self, event):
-        """Event method that scrolls the image horizontally using shift + mousewheel.
-
-        Scrolls the image 20 units left or right depending on the direction of the mousewheel.
-        """
         if event.num == 5 or event.delta == -120:  # scroll down
             self.canvas.xview('scroll', 20, 'units')
         if event.num == 4 or event.delta == 120:
@@ -121,23 +116,33 @@ class Application(tk.Frame):
         self._update_image()
         
     def _update_image(self):
-        self.canvas.delete("all")
-        self.zoomed_canvas.delete("all")
+        self.canvas.destroy()
+        self.zoomed_canvas.destroy()
+        self.create_image_canvas()
+        gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
+        self.create_scrollbar()
+        self.create_marker_binds()
+        
         self.cur_img = self.format_image((1, 1, 1))
         self.img_width, self.img_height = self.cur_img.size
-        gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
         
     def create_image_canvas(self):
-        self.canvas = tk.Canvas(self.master, highlightthickness=0)
+        self.canvas = tk.Canvas(self.master, highlightthickness=0, bg="white")
         self.canvas.grid(row=1, column=1, sticky="nswe")
-        self.zoomed_canvas = tk.Canvas(self.master, highlightthickness=0)
+        self.zoomed_canvas = tk.Canvas(self.master, highlightthickness=0, bg="black")
         self.zoomed_canvas.grid(row=1, column=3, sticky="nswe")
         self.canvas.focus_set()
     
     def format_image(self, *intensity): # changing color channels of the picture
-        cur_img_path = os.path.join(parent_dir, "images", f"{self.cur_tile.get()}.tif")
-        cur_img = Image.open(cur_img_path)
+        array_path = os.path.join(parent_dir, "tile_array.h5")
         
+        with h5py.File(array_path, "r") as hf:
+            cur_array = hf["tiles"][self.cur_tile.get()]
+        
+        cur_img = Image.fromarray(cur_array, "RGB")
+        # cur_img_path = os.path.join(parent_dir, "images", f"{self.cur_tile.get()}.tif")
+        # cur_img = Image.open(cur_img_path)
+        del cur_array
         if not intensity:
             return cur_img
         else:
