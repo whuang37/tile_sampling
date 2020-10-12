@@ -5,7 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import h5py
-
+import math
 class Database:
     def __init__(self, folder_path):
         self.folder_path = folder_path
@@ -92,17 +92,18 @@ class Database:
         return result
     
     def get_tiles(self):
-        get_tiles_query = "SELECT * FROM tile"
+        get_tiles_query = '''SELECT * FROM tile'''
         self.c.execute(get_tiles_query)
         result = self.c.fetchall()
         self.close()
         return result
     
-    def annotations_df(self):
-        df = pd.read_sql_query("SELECT * from annotations", self.conn)
-        print(df)
+    def all_annotations_df(self):
+        df = pd.read_sql_query('''SELECT TILE_ID, TYPE, count(TYPE) from annotations GROUP BY TILE_ID, TYPE''', self.conn)
         self.close()
-        
+        df = df.pivot(index = "TILE_ID", columns = "TYPE", values = "count(TYPE)")
+        return df
+    
 if __name__ == "__main__":
     # Database(r"test").initiate(r"test\test_100_tile_stack.npy")
-    Database(r"test").annotations_df()
+    print(Database(r"test").all_annotations_df())
