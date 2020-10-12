@@ -105,6 +105,9 @@ class Database:
         df = df.pivot(index = "TILE_ID", columns = "TYPE", values = "count(TYPE)")
         df = df.fillna(value=0)
         
+        for key in constants.keys:
+            if key not in df.columns:
+                df[key] = 0
         return df
     
     def tile_annotation_values(self, tile_id):
@@ -119,7 +122,7 @@ class Database:
             values_dict[value[0]] = value[1]
         
         for key in constants.keys:
-            if not values_dict[key]:
+            if key not in values_dict:
                 values_dict[key] = 0
         total = 0
         for x in values_dict.values():

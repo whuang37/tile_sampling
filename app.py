@@ -9,7 +9,7 @@ from database import Database
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
-import 
+from matplotlib.backends.backend_tkagg import(FigureCanvasTkAgg, NavigationToolbar2Tk)
 """
 Notes/Design
 
@@ -214,10 +214,11 @@ class Application(tk.Frame):
         
         tag = f"{tile_id}_{x}_{y}"
         
-        self.canvas.create_line(x , y + 3, x, y + 10, fill = color, width = 2, tag = tag)
-        self.canvas.create_line(x , y - 3, x, y - 10, fill = color, width = 2, tag = tag)
-        self.canvas.create_line(x + 3, y, x + 10, y, fill = color, width = 2, tag = tag)
-        self.canvas.create_line(x - 3, y, x - 10, y, fill = color, width = 2, tag = tag)
+        # can optimize later
+        self.canvas.create_line(x , y - 10, x, y + 10, fill = color, width = 2, tag = tag)
+        # self.canvas.create_line(x , y - 3, x, y - 10, fill = color, width = 2, tag = tag)
+        self.canvas.create_line(x - 10, y, x + 10, y, fill = color, width = 2, tag = tag)
+        # self.canvas.create_line(x - 3, y, x - 10, y, fill = color, width = 2, tag = tag)
         self.canvas.tag_bind(tag, '<ButtonPress-1>', lambda event, tag = tag, tile = tile_id, x = x, y = y: self._on_click(event, tag, tile, x, y))
         self.canvas.tag_bind(tag, '<Enter>', lambda event, tag = tag: self._on_enter(event, tag))
         self.canvas.tag_bind(tag, '<Leave>', lambda event, tag = tag: self._on_leave(event, tag, color))
@@ -280,7 +281,7 @@ class InformationFrame(tk.Frame):
         self.cur_tile = cur_tile
         
         self.create_tile_info()
-        
+        self.create_graphs()
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.pack(side = "bottom")
@@ -311,6 +312,14 @@ class InformationFrame(tk.Frame):
         
     def create_graphs(self):
         df = Database(parent_dir).all_annotations_df()
+        total = df.sum(axis=1)
+        
+        df = df.div(total, axis=0).multiply(100).round(2)
+        affected = df[["bi", "mu", "bimu"]].sum(axis=1)
+        
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4)
+        ax1.plot(total, affected)
+        
 if __name__ == "__main__":
     root = tk.Tk()
     app = Application(root)
