@@ -30,17 +30,17 @@ class Database:
                                                                         
         self.c.execute(create_table_query)
         
-        create_grid_query = '''CREATE TABLE IF NOT EXISTS grid (TILE_ID INTEGER NOT NULL, 
+        create_grid_query = '''CREATE TABLE IF NOT EXISTS tile (TILE_ID INTEGER NOT NULL, 
                                                                     FINISHED INTEGER)'''
                                                                     
         self.c.execute(create_grid_query)
         
         grid_completion = []
-        for i in range (1, 101):
+        for i in range (0, 100):
             x = (i, False)
             grid_completion.append(x)
             
-        add_grid_query = '''INSERT INTO grid (TILE_ID, FINISHED)
+        add_grid_query = '''INSERT INTO tile (TILE_ID, FINISHED)
                                                 VALUES(?, ?)'''
         self.c.executemany(add_grid_query, grid_completion)
         
@@ -83,6 +83,20 @@ class Database:
         
         return tile_annotations
     
+    def finish_tile(self, tile_id, state):
+        finish_tile_query = '''UPDATE tile SET FINISHED = ? WHERE TILE_ID = ?'''
+        self.c.execute(finish_tile_query, (state, tile_id))
+        result = self.c.fetchall()
+        self.close()
+        return result
+    
+    def get_tiles(self):
+        get_tiles_query = "SELECT * FROM tile"
+        self.c.execute(get_tiles_query)
+        result = self.c.fetchall()
+        self.close()
+        return result
+    
 if __name__ == "__main__":
-    Database(r"test").initiate()
+    Database(r"test").initiate(r"test\test_100_tile_stack.npy")
     print("happened")

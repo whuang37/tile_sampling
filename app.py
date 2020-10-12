@@ -31,8 +31,12 @@ class Application(tk.Frame):
         tk.Frame.__init__(self, master)
         self.master.title("Tile Sampling")
         
+        self.finished_bools = Database(parent_dir).get_tiles()
+        bools = [i[1] for i in self.finished_bools]
+        first_unfinished = next((i for i, j in enumerate(bools) if j == False), 0)
+        
         self.cur_tile = tk.IntVar()
-        self.cur_tile.set(0)
+        self.cur_tile.set(self.finished_bools[first_unfinished][0])
         
         self.cur_img = self.format_image()
         self.img_width, self.img_height = self.cur_img.size
@@ -48,6 +52,7 @@ class Application(tk.Frame):
         
         self.create_binds()
         self.create_navigator()
+        
         
     def create_scrollbar(self):
         self.vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
@@ -102,10 +107,14 @@ class Application(tk.Frame):
     
     def create_finished(self):
         self.var_fin = tk.IntVar()
-        self.var_fin.set(0)
+        self.var_fin.set(self.finished_bools[self.cur_tile.get()][1])
         self.finished = tk.Checkbutton(self.navigator, text = "Finished", variable = self.var_fin, # finished squares
-                                        onvalue = 1, offvalue = 0)
+                                        onvalue = 1, offvalue = 0, command = lambda i = self.cur_tile.get(): self._update_finished(i))
         self.finished.grid(row = 3, column = 1)
+        
+    def _update_finished(self, tile_id):
+        print(self.var_fin.get())
+        Database(parent_dir).finish_tile(tile_id, self.var_fin.get())
         
     def _increment_tile(self, i):
         if (self.cur_tile.get() >= constants.grids_h * constants.grids_w) & (i == 1):
@@ -141,6 +150,9 @@ class Application(tk.Frame):
         
         self.cur_img = self.format_image((1, 1, 1))
         self.img_width, self.img_height = self.cur_img.size
+        
+        self.finished.destroy()
+        self.create_finished()
         
     def create_image_canvas(self):
         self.canvas = tk.Canvas(self.master, highlightthickness=0, bg="white")
