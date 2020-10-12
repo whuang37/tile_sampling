@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk
 import math
 import os
@@ -33,18 +34,19 @@ class Application(tk.Frame):
         self.cur_tile = tk.IntVar()
         self.cur_tile.set(0)
         
-        self.cur_img = self.format_image((1, 1, 1))
+        self.cur_img = self.format_image()
         self.img_width, self.img_height = self.cur_img.size
         
         self.create_image_canvas()
         gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
+        self.initiate_markers()
         self.create_scrollbar()
         
         self.master.rowconfigure(1, weight=1)
         self.master.columnconfigure(1, weight=1)
         self.master.columnconfigure(3, weight =1)
         
-        self.create_marker_binds()
+        self.create_binds()
         self.create_navigator()
         
     def create_scrollbar(self):
@@ -75,19 +77,29 @@ class Application(tk.Frame):
     def create_navigator(self):
         self.navigator = tk.Frame(self.master)
         self.navigator.grid(row=3, column=1, columnspan=3)
-        self.n_text = tk.Label(self.navigator, text = str(self.cur_tile.get()), font = ("Calibri", 30))
-        self.n_text.grid(row = 1, column = 1, pady = 25, padx = 25)
         
-        self.n_forward_button = tk.Button(self.navigator, text =">", font = ("Calibri", 20),
-                                           command=self._forward)
-        self.n_forward_button.grid(row = 1, column = 2)
+        self.goto = ttk.Combobox(self.navigator, values=[str(i) for i in range(1,101)],
+                                 font=("Calibri", 30), width=3, justify="center", 
+                                 state="normal")
+        self.goto.bind("<<ComboboxSelected>>", self._nav_goto)
+        self.goto.bind("<Return>", self._nav_goto)
+        self.goto.set(str(self.cur_tile.get() + 1))
+        self.goto.grid(row=1, column=1, pady=25, padx=25)
         
-        self.n_backward_button = tk.Button(self.navigator, text ="<", font = ("Calibri", 20),
-                                           command=self._backward)
-        self.n_backward_button.grid(row = 1, column = 0)
+        self.n_forward_button = tk.Button(self.navigator, text =">", font=("Calibri", 20),
+                                           command=lambda: self._increment_tile(1))
+        self.n_forward_button.grid(row=1, column=2)
+        
+        self.n_backward_button = tk.Button(self.navigator, text ="<", font=("Calibri", 20),
+                                           command=lambda: self._increment_tile(-1))
+        self.n_backward_button.grid(row=1, column=0)
         self.create_finished()
         # self.unfinished = next((i for i, j in enumerate(bools) if j == False), 0) # finds the first unfinished
         
+    def _nav_goto(self, event):
+        self.cur_tile.set(int(self.goto.get()) - 1)
+        self._update_image()
+    
     def create_finished(self):
         self.var_fin = tk.IntVar()
         self.var_fin.set(0)
@@ -95,33 +107,37 @@ class Application(tk.Frame):
                                         onvalue = 1, offvalue = 0)
         self.finished.grid(row = 3, column = 1)
         
-    def _forward(self):
-        if self.cur_tile.get() < constants.grids_h * constants.grids_w:
-            self.cur_tile.set(self.cur_tile.get() + 1)
-        else: 
+    def _increment_tile(self, i):
+        if (self.cur_tile.get() >= constants.grids_h * constants.grids_w) & (i == 1):
             return
-        self.n_text.configure(text = str(self.cur_tile.get()))
-        self.n_text.update()
-        
-        self._update_image()
+        elif (self.cur_tile.get() <= 0) & (i == -1):
+            return
+        else: 
+            self.cur_tile.set(self.cur_tile.get() + i)
+            self._update_image()
+            self.goto.set(str(self.cur_tile.get() + 1))
         
     def _backward(self):
         if self.cur_tile.get() > 0:
             self.cur_tile.set(self.cur_tile.get() - 1)
         else:
             return
-        self.n_text.configure(text = str(self.cur_tile.get()))
-        self.n_text.update()
-        
+        print(self.cur_tile.get())
         self._update_image()
         
-    def _update_image(self):
+    def _update_image(self, *colors):
+        if not colors:
+            self.cur_img = self.format_image()
+        else:
+            self.cur_img = self.format_image(colors[0])
+            
         self.canvas.destroy()
         self.zoomed_canvas.destroy()
         self.create_image_canvas()
         gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
+        self.initiate_markers()
         self.create_scrollbar()
-        self.create_marker_binds()
+        self.create_binds()
         
         self.cur_img = self.format_image((1, 1, 1))
         self.img_width, self.img_height = self.cur_img.size
@@ -133,20 +149,19 @@ class Application(tk.Frame):
         self.zoomed_canvas.grid(row=1, column=3, sticky="nswe")
         self.canvas.focus_set()
     
-    def format_image(self, *intensity): # changing color channels of the picture
+    def format_image(self, *colors): # opening and changing color channels of the picture
         array_path = os.path.join(parent_dir, "tile_array.h5")
         
         with h5py.File(array_path, "r") as hf:
             cur_array = hf["tiles"][self.cur_tile.get()]
         
         cur_img = Image.fromarray(cur_array, "RGB")
-        # cur_img_path = os.path.join(parent_dir, "images", f"{self.cur_tile.get()}.tif")
-        # cur_img = Image.open(cur_img_path)
         del cur_array
-        if not intensity:
+        
+        if not colors:
             return cur_img
         else:
-            intensity = intensity[0]
+            intensity = colors[0]
         
         r, g, b = cur_img.split()
         r = r.point(lambda i: i * intensity[0])
@@ -155,7 +170,7 @@ class Application(tk.Frame):
         
         return Image.merge("RGB", (r, g, b))
     
-    def create_marker_binds(self):
+    def create_binds(self):
         self.canvas.bind("q", lambda event, m_type = "u": self._markers(event, m_type))
         self.canvas.bind("w", lambda event, m_type = "bb": self._markers(event, m_type))
         self.canvas.bind("e", lambda event, m_type = "ms": self._markers(event, m_type))
@@ -168,6 +183,11 @@ class Application(tk.Frame):
         
         Database(parent_dir).add_value(m_type, self.cur_tile.get(), x, y)
         
+    def initiate_markers(self):
+        data = Database(parent_dir).query_tile_annotations(self.cur_tile.get())
+        for i in data:
+            self.create_marker(i[0], i[1], i[2], i[3]) # type, tileid, x, y
+    
     def create_marker(self, m_type, tile_id, x, y):
         color = constants.marker_color[m_type]
         

@@ -3,6 +3,7 @@ import csv
 from shutil import copy
 import os
 import numpy as np
+import pandas as pd
 import h5py
 class Database:
     def __init__(self, folder_path):
@@ -45,6 +46,7 @@ class Database:
         
         self.close()
         
+        # hdf5 conversion
         array = np.load(array_path)
         save_path = os.path.join(self.folder_path, "tile_array.h5")
         with h5py.File(save_path, "w") as hf:
@@ -68,6 +70,19 @@ class Database:
         self.c.execute(delete_query, data_values)
         self.close()
         
+    def query_all_annotations(self):
+        all_query = '''SELECT * from annotations'''
+        self.c.execute(all_query)
+        annotations = self.c.fetchall()
+        return annotations
+    
+    def query_tile_annotations(self, tile_id):
+        tile_query = '''SELECT * from annotations where TILE_ID = ?'''
+        self.c.execute(tile_query, (tile_id,))
+        tile_annotations = self.c.fetchall()
+        
+        return tile_annotations
+    
 if __name__ == "__main__":
     Database(r"test").initiate()
     print("happened")
