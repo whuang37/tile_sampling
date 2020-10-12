@@ -15,3 +15,4 @@ marker_color = {keys[0]: "firebrick3", keys[1]: "cyan", keys[2]: "yellow", keys[
 max_annotations = 3000
 min_perc = 2
 min_ce = 5
+passed_tiles_req = 10

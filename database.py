@@ -153,14 +153,17 @@ class Database:
         i = constants.min_perc
         j = constants.min_ce
         
-        if df[["bi", "mu", "bimu", "un"]].values.sum() >= constants.max_annotations:
+        total_annotated = df.iloc[-1, 0:4].values.sum()
+        
+        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i)][(df["ce bi"] > j) & (df["ce mu"] > j) & (df["ce affected"] > j)])
+        if total_annotated >= constants.max_annotations:
             completed = True
-        elif len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i)][(df["ce bi"] > j) & (df["ce mu"] > j) & (df["ce affected"] > j)]) >= 10:
+        elif num_passed_tiles >= constants.passed_tiles_req:
             completed = True
         else:
             completed = False
         
-        return completed
+        return completed, total_annotated, num_passed_tiles
     
     def create_graphs(self):
         matplotlib.use("Agg")
@@ -206,9 +209,6 @@ class Database:
         img = Image.frombytes("RGB", canvas.get_width_height(), canvas.tostring_rgb())
         img.save("test222222.png")
         plt.close(fig)
-        
-        def check_completed():
-            return 
         
         return img
 
