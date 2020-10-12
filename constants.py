@@ -10,3 +10,8 @@ bindings =  {keys[0]: "q", keys[1]: "w", keys[2]: "e", keys[3]: "r"}
 
 marker_color = {keys[0]: "firebrick3", keys[1]: "cyan", keys[2]: "yellow", keys[3]: "light salmon"}
 
+# completion values
+
+max_annotations = 3000
+min_perc = 2
+min_ce = 5

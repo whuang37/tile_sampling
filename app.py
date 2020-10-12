@@ -53,6 +53,7 @@ class Application(tk.Frame):
         
         self.inf_frame = InformationFrame(self.master, self.cur_tile.get())
         self.inf_frame.grid(row=1, column=0, sticky="ns", rowspan=3)
+        
     def create_scrollbar(self):
         self.vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
         self.vbar.grid(row=1, column=2, sticky='ns')
@@ -280,12 +281,12 @@ class InformationFrame(tk.Frame):
         self.master = master
         self.cur_tile = cur_tile
         self.create_tile_info()
-        # self.create_graph_frame()
-        self.create_image_canvas()
+        self.create_graph_canvas()
         
+        self.rowconfigure(3, weight=1)
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
-        self.tile_info.pack(side = "bottom")
+        self.tile_info.grid(row=4, column=0)
         
         colors = constants.marker_color
         colors["total"] = "SystemButtonFace"
@@ -311,33 +312,49 @@ class InformationFrame(tk.Frame):
         for key in values:
             self.ann_counts[key].config(text =str(values[key]))
         
-    
-    
-    def create_graph_frame(self):
-        self.fig = self.create_graphs()
-        
-        self.graph_frame = tk.Frame(self)
-        self.graph_frame.pack(side="top")
-        self.graphs = FigureCanvasTkAgg(self.fig, master=self.graph_frame)
-        self.graphs.draw()
-        self.graphs.get_tk_widget().pack(side="top")
-        self.plt_toolbar = NavigationToolbar2Tk(self.graphs, self.graph_frame)
-        self.plt_toolbar.update()
-        self.graphs.get_tk_widget().pack(side="bottom")
-        
-    def create_image_canvas(self):
+    def create_graph_canvas(self):
         self.graphs_canvas = tk.Canvas(self)
         img = Database(parent_dir).create_graphs()
         imagetk = ImageTk.PhotoImage(img)
         imageid = self.graphs_canvas.create_image(0, 0, anchor="nw", image=imagetk)
         self.graphs_canvas.lower(imageid)
         self.graphs_canvas.imagetk = imagetk
+        self.graphs_canvas.update()
         
-        self.graphs_canvas.pack(side="bottom")
+        self.create_graph_scrollbar()
+        self.graphs_canvas.grid(row=3, column=0, sticky="ns")
+        
+        
+    def create_graph_scrollbar(self):
+        self.vbar = tk.Scrollbar(self, orient="vertical", command=self.graphs_canvas.yview)
+        self.graphs_canvas.configure(yscrollcommand=self.vbar.set, yscrollincrement="2", 
+                                     scrollregion=self.graphs_canvas.bbox("all"))
+        self.graphs_canvas.update()
+        
+        self.vbar.grid(row=3, column=1, sticky="ns")
+        self.graphs_canvas.bind('<MouseWheel>', self.verti_wheel)
+        self.graphs_canvas.bind('<Shift-MouseWheel>', self.hori_wheel) 
+        
+    def verti_wheel(self, event):
+        if event.num == 5 or event.delta == -120:  # scroll down
+            self.graphs_canvas.yview('scroll', 20, 'units')
+        if event.num == 4 or event.delta == 120:
+            self.graphs_canvas.yview('scroll', -20, 'units')
+
+    def hori_wheel(self, event):
+        if event.num == 5 or event.delta == -120:  # scroll down
+            self.graphs_canvas.xview('scroll', 20, 'units')
+        if event.num == 4 or event.delta == 120:
+            self.graphs_canvas.xview('scroll', -20, 'units')
+    
     def _update_graphs(self):
-        self.fig = self.create_graphs()
-        # self.graphs = FigureCanvasTkAgg(fig, master=self.graph_frame)
-        self.graphs.draw()
+        self.graphs_canvas.delete("all")
+        img = Database(parent_dir).create_graphs()
+        imagetk = ImageTk.PhotoImage(img)
+        imageid = self.graphs_canvas.create_image(0, 0, anchor="nw", image=imagetk)
+        self.graphs_canvas.lower(imageid)
+        self.graphs_canvas.imagetk = imagetk
+        self.graphs_canvas.update()
         
 if __name__ == "__main__":
     root = tk.Tk()

@@ -7,6 +7,7 @@ import pandas as pd
 import h5py
 import math
 import constants
+import matplotlib
 import matplotlib.pyplot as plt
 from PIL import Image
 
@@ -133,56 +134,83 @@ class Database:
         values_dict["total"] = total
         return values_dict
     
-    def create_graphs(self):
-        df = Database(parent_dir).all_annotations_df()
+    def format_df(self, df):
         total = df.sum(axis=1).cumsum() # total number with unaffected
         df[["bi", "mu", "bimu"]] = df[["bi", "mu", "bimu"]].cumsum(axis=0)
-        df = df.div(total, axis=0).multiply(100).round(2)
         df["affected"] = df[["bi", "mu", "bimu"]].sum(axis=1)
-        print(df)
-        # print(df)
+        df = df.div(total, axis=0).multiply(100).round(2)
         # moving CE calc
         df["ce bi"] = df["bi"].rolling(window=10).std()
         df["ce mu"] = df["mu"].rolling(window=10).std()
         df["ce affected"] = df["affected"].rolling(window=10).std()
-        
-        
         # getting the 10 day std as a percentage of the current mean
         df[["ce bi", "ce mu", "ce affected"]] = df[["ce bi", "ce mu", "ce affected"]].div(df["affected"], axis=0).multiply(100)
         
-        fig = Figure(figsize=(4,8))
-        ax1 = fig.add_subplot(411)
-        ax1.plot(total, df["bi"], label="Bi")
-        ax1.set_title("Bi v Total Cells")
-        ax1.set_ylabel("Percent Bi")
-        ax1.set_xlabel("Total Cells Evaluated")
+        return df
+    
+    def check_completed(self):
+        df =self.format_df(self.all_annotations_df())
+        i = constants.min_perc
+        j = constants.min_ce
         
-        ax2 = fig.add_subplot(412)
-        ax2.plot(total, df["mu"], label="mu", color="orange")
-        ax2.set_title("Mu v Total Cells")
-        ax2.set_ylabel("Percent Mu")
+        if df[["bi", "mu", "bimu", "un"]].values.sum() >= constants.max_annotations:
+            completed = True
+        elif len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i)][(df["ce bi"] > j) & (df["ce mu"] > j) & (df["ce affected"] > j)]) >= 10:
+            completed = True
+        else:
+            completed = False
+        
+        return completed
+    
+    def create_graphs(self):
+        matplotlib.use("Agg")
+        df = self.format_df(self.all_annotations_df())
+        
+        total = df.sum(axis=1).cumsum() # total number with unaffected
+        pie_sizes = df.iloc[-1, 0:4]
+        fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
+        
+        ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=["bi", "bi & mu", "mu", "un"], autopct="%1.1f%%"
+                , startangle=90, radius=2.5)
+        ax1.set_title("Annotation Breakdown", y=1.7)
+        
+        ax2.plot(total, df["bi"], label="Bi")
+        ax2.set_title("Bi v Total Cells")
+        ax2.set_ylabel("Percent Bi")
         ax2.set_xlabel("Total Cells Evaluated")
         
-        ax3 = fig.add_subplot(413)
-        ax3.plot(total, df["affected"], label="total affected", color="green")
-        ax3.set_title("Total Affected v Total Cells")
-        ax3.set_ylabel("Percent Affected")
+        ax3.plot(total, df["mu"], label="mu", color="orange")
+        ax3.set_title("Mu v Total Cells")
+        ax3.set_ylabel("Percent Mu")
         ax3.set_xlabel("Total Cells Evaluated")
         
-        ax4 = fig.add_subplot(414)
-        ax4.plot(total, df["ce bi"], label="Bi")
-        ax4.plot(total, df["ce mu"], label="mu", color="orange")
-        ax4.plot(total, df["ce affected"], label="total affected", color="green")
-        ax4.axhline(5, color="grey", alpha=.5, dashes=(1,1))
-        ax4.set_title("Moving CE v Total Cells")
-        ax4.set_ylabel("Moving CE Percentage")
+        ax4.plot(total, df["affected"], label="total affected", color="green")
+        ax4.set_title("Total Affected v Total Cells")
+        ax4.set_ylabel("Percent Affected")
         ax4.set_xlabel("Total Cells Evaluated")
         
-        lines, labels = fig.axes[-1].get_legend_handles_labels()
-        fig.legend(lines, labels, loc="upper left")
-        fig.tight_layout()
+        ax5.plot(total, df["ce bi"], label="Bi")
+        ax5.plot(total, df["ce mu"], label="mu", color="orange")
+        ax5.plot(total, df["ce affected"], label="total affected", color="green")
+        ax5.axhline(5, color="grey", alpha=.5, dashes=(1,1))
+        ax5.set_title("Moving CE v Total Cells")
+        ax5.set_ylabel("Moving CE Percentage")
+        ax5.set_xlabel("Total Cells Evaluated")
         
-        return fig
+        lines, labels = fig.axes[-1].get_legend_handles_labels()
+        fig.legend(lines, labels, loc="upper center", bbox_to_anchor=(.5, .74), ncol=3)
+        fig.tight_layout()
+        canvas = plt.get_current_fig_manager().canvas
+        canvas.draw()
+        
+        img = Image.frombytes("RGB", canvas.get_width_height(), canvas.tostring_rgb())
+        img.save("test222222.png")
+        plt.close(fig)
+        
+        def check_completed():
+            return 
+        
+        return img
 
 """
 type 
@@ -192,5 +220,5 @@ absolute y coord (from og image)
 """
 if __name__ == "__main__":
     # Database(r"test").initiate(r"test\test_100_tile_stack.npy")
-    print(Database(r"test").all_annotations_df())
+    print(Database(r"test").check_completed())
     # print(Database(r"test").tile_annotation_values(0))
