@@ -102,7 +102,10 @@ class Database:
         df = pd.read_sql_query('''SELECT TILE_ID, TYPE, count(TYPE) from annotations GROUP BY TILE_ID, TYPE''', self.conn)
         self.close()
         df = df.pivot(index = "TILE_ID", columns = "TYPE", values = "count(TYPE)")
+        df = df.fillna(value=0)
+        
         return df
+    
     
 if __name__ == "__main__":
     # Database(r"test").initiate(r"test\test_100_tile_stack.npy")

@@ -174,12 +174,14 @@ class Application(tk.Frame):
         return Image.merge("RGB", (r, g, b))
     
     def create_binds(self):
-        self.canvas.bind("q", lambda event, m_type = "u": self._markers(event, m_type))
-        self.canvas.bind("w", lambda event, m_type = "bb": self._markers(event, m_type))
-        self.canvas.bind("e", lambda event, m_type = "ms": self._markers(event, m_type))
-        self.canvas.bind("r", lambda event, m_type = "bbms": self._markers(event, m_type))
+        self.canvas.bind("q", lambda event, m_type = "un": self._markers(event, m_type))
+        self.canvas.bind("w", lambda event, m_type = "bi": self._markers(event, m_type))
+        self.canvas.bind("e", lambda event, m_type = "mu": self._markers(event, m_type))
+        self.canvas.bind("r", lambda event, m_type = "bimu": self._markers(event, m_type))
         
     def _markers(self, event, m_type):
+        if self.var_fin.get() == 1: # if the grid is marked as finished
+            return
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         self.create_marker(m_type, self.cur_tile.get(), x, y)
