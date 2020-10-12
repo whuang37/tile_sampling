@@ -113,7 +113,6 @@ class Application(tk.Frame):
         self.finished.grid(row = 3, column = 1)
         
     def _update_finished(self, tile_id):
-        print(self.var_fin.get())
         Database(parent_dir).finish_tile(tile_id, self.var_fin.get())
         
     def _increment_tile(self, i):
@@ -125,14 +124,6 @@ class Application(tk.Frame):
             self.cur_tile.set(self.cur_tile.get() + i)
             self._update_image()
             self.goto.set(str(self.cur_tile.get() + 1))
-        
-    def _backward(self):
-        if self.cur_tile.get() > 0:
-            self.cur_tile.set(self.cur_tile.get() - 1)
-        else:
-            return
-        print(self.cur_tile.get())
-        self._update_image()
         
     def _update_image(self, *colors):
         if not colors:
@@ -201,6 +192,12 @@ class Application(tk.Frame):
             self.create_marker(i[0], i[1], i[2], i[3]) # type, tileid, x, y
     
     def create_marker(self, m_type, tile_id, x, y):
+        # prevents users from making markers off of the image
+        if (x < 0) | (x > self.img_width):
+            return
+        elif (y < 0) | (y > self.img_height):
+            return
+        
         color = constants.marker_color[m_type]
         
         tag = f"{tile_id}_{x}_{y}"
@@ -264,6 +261,12 @@ class GridImages:
         canvas.lower(imageid)
         canvas.imagetk = imagetk # reference for garbage collection
     
+class InformationFrame(tk.Frame):
+    def __init__(self, master):
+        tk.Frame.__init__(self)
+        self.master = master
+        
+        
 if __name__ == "__main__":
     root = tk.Tk()
     app = Application(root)

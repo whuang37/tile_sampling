@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import h5py
+
 class Database:
     def __init__(self, folder_path):
         self.folder_path = folder_path
@@ -97,6 +98,11 @@ class Database:
         self.close()
         return result
     
+    def annotations_df(self):
+        df = pd.read_sql_query("SELECT * from annotations", self.conn)
+        print(df)
+        self.close()
+        
 if __name__ == "__main__":
-    Database(r"test").initiate(r"test\test_100_tile_stack.npy")
-    print("happened")
+    # Database(r"test").initiate(r"test\test_100_tile_stack.npy")
+    Database(r"test").annotations_df()
