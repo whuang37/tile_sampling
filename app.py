@@ -8,7 +8,7 @@ import time
 from database import Database
 import numpy as np
 import h5py
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import(FigureCanvasTkAgg, NavigationToolbar2Tk)
 """
 Notes/Design
@@ -34,30 +34,25 @@ class Application(tk.Frame):
         self.master.title("Tile Sampling")
         
         self.finished_bools = Database(parent_dir).get_tiles()
+        
         bools = [i[1] for i in self.finished_bools]
         first_unfinished = next((i for i, j in enumerate(bools) if j == False), 0)
         
         self.cur_tile = tk.IntVar()
         self.cur_tile.set(self.finished_bools[first_unfinished][0])
-        
         self.cur_img = self.format_image()
         self.img_width, self.img_height = self.cur_img.size
         
-        self.create_image_canvas()
-        gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
-        self.initiate_markers()
-        self.next_call = time.process_time() - 1
-        self.create_scrollbar()
+        self.create_navigator()
+        self.next_call = time.time() - 1
+        self._update_image()
         
         self.master.rowconfigure(1, weight=1)
         self.master.columnconfigure(1, weight=1)
         self.master.columnconfigure(3, weight =1)
         
-        self.create_binds()
-        self.create_navigator()
-        
         self.inf_frame = InformationFrame(self.master, self.cur_tile.get())
-        self.inf_frame.grid(row=2, column=0, sticky="ns", rowspan=2)
+        self.inf_frame.grid(row=1, column=0, sticky="ns", rowspan=3)
         
     def create_scrollbar(self):
         self.vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
@@ -118,6 +113,8 @@ class Application(tk.Frame):
         self.finished.grid(row = 3, column = 1)
         
     def _update_finished(self, tile_id):
+        if self.var_fin.get() == 1:
+            self.inf_frame.update_graphs()
         Database(parent_dir).finish_tile(tile_id, self.var_fin.get())
         
     def _increment_tile(self, i):
@@ -136,8 +133,11 @@ class Application(tk.Frame):
         else:
             self.cur_img = self.format_image(colors[0])
             
-        self.canvas.destroy()
-        self.zoomed_canvas.destroy()
+        try:
+            self.canvas.destroy()
+            self.zoomed_canvas.destroy()
+        except:
+            pass
         self.create_image_canvas()
         gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
         self.initiate_markers()
@@ -189,7 +189,6 @@ class Application(tk.Frame):
             self.next_call = time.time() + .5
         else:
             return
-        
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         self.create_marker(m_type, self.cur_tile.get(), x, y)
@@ -276,12 +275,12 @@ class GridImages:
     
 class InformationFrame(tk.Frame):
     def __init__(self, master, cur_tile):
-        tk.Frame.__init__(self, cur_tile)
+        tk.Frame.__init__(self)
         self.master = master
         self.cur_tile = cur_tile
-        
         self.create_tile_info()
-        self.create_graphs()
+        self.create_graph_frame()
+        
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.pack(side = "bottom")
@@ -314,11 +313,69 @@ class InformationFrame(tk.Frame):
         df = Database(parent_dir).all_annotations_df()
         total = df.sum(axis=1)
         
+        df["total"] = df[["bi", "mu", "bimu"]].sum(axis=1)
         df = df.div(total, axis=0).multiply(100).round(2)
-        affected = df[["bi", "mu", "bimu"]].sum(axis=1)
         
-        fig, (ax1, ax2, ax3, ax4) = plt.subplots(4)
-        ax1.plot(total, affected)
+        # moving CE calc
+        df["ce bi"] = df["bi"].rolling(window=10).std()
+        df["ce mu"] = df["mu"].rolling(window=10).std()
+        df["ce total"] = df["total"].rolling(window=10).std()
+        
+        graphing_total = df["total"].cumsum() # cumulative sum for graphing
+        
+        # getting the 10 day std as a percentage of the current mean
+        df[["ce bi", "ce mu", "ce total"]] = df[["ce bi", "ce mu", "ce total"]].div(df["total"], axis=0).multiply(100)
+        
+        fig = Figure(figsize=(4,8))
+        ax1 = fig.add_subplot(411)
+        ax1.plot(graphing_total, df["bi"], label="Bi")
+        ax1.set_title("Bi v Total Cells")
+        ax1.set_ylabel("Percent Bi")
+        ax1.set_xlabel("Total Cells Evaluated")
+        
+        ax2 = fig.add_subplot(412)
+        ax2.plot(graphing_total, df["mu"], label="mu", color="orange")
+        ax2.set_title("Mu v Total Cells")
+        ax2.set_ylabel("Percent Mu")
+        ax2.set_xlabel("Total Cells Evaluated")
+        
+        ax3 = fig.add_subplot(413)
+        ax3.plot(graphing_total, df["total"], label="total affected", color="green")
+        ax3.set_title("Total Affected v Total Cells")
+        ax3.set_ylabel("Percent Affected")
+        ax3.set_xlabel("Total Cells Evaluated")
+        
+        ax4 = fig.add_subplot(414)
+        ax4.plot(graphing_total, df["ce bi"], label="Bi")
+        ax4.plot(graphing_total, df["ce mu"], label="mu", color="orange")
+        ax4.plot(graphing_total, df["ce total"], label="total affected", color="green")
+        ax4.axhline(5, color="grey", alpha=.5, dashes=(1,1))
+        ax4.set_title("Moving CE v Total Cells")
+        ax4.set_ylabel("Moving CE Percentage")
+        ax4.set_xlabel("Total Cells Evaluated")
+        
+        lines, labels = fig.axes[-1].get_legend_handles_labels()
+        fig.legend(lines, labels, loc="upper left")
+        fig.tight_layout()
+        
+        return fig
+    
+    def create_graph_frame(self):
+        fig = self.create_graphs()
+        
+        self.graph_frame = tk.Frame(self)
+        self.graph_frame.pack(side="top")
+        self.graphs = FigureCanvasTkAgg(fig, master=self.graph_frame)
+        self.graphs.draw()
+        self.graphs.get_tk_widget().pack(side="top")
+        self.plt_toolbar = NavigationToolbar2Tk(self.graphs, self.graph_frame)
+        self.plt_toolbar.update()
+        self.graphs.get_tk_widget().pack(side="bottom")
+        
+    def update_graphs(self):
+        fig = self.create_graphs()
+        self.graphs = FigureCanvasTkAgg(fig, master=self.graph_frame)
+        self.graphs.draw()
         
 if __name__ == "__main__":
     root = tk.Tk()
