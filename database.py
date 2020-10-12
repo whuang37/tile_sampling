@@ -111,6 +111,8 @@ class Database:
         values_query = '''SELECT TYPE, count(TYPE) from annotations where TILE_ID = ? GROUP BY TYPE'''
         self.c.execute(values_query, (tile_id,))
         result = self.c.fetchall()
+        self.close()
+        
         values_dict = {}
         
         for value in result:
@@ -119,9 +121,14 @@ class Database:
         for key in constants.keys:
             if not values_dict[key]:
                 values_dict[key] = 0
+        total = 0
+        for x in values_dict.values():
+            total += x
         
+        values_dict["total"] = total
         return values_dict
+    
 if __name__ == "__main__":
-    Database(r"test").initiate(r"test\test_100_tile_stack.npy")
+    # Database(r"test").initiate(r"test\test_100_tile_stack.npy")
     # print(Database(r"test").all_annotations_df())
-    # print(Database(r"test").tile_annotation_values(0))
+    print(Database(r"test").tile_annotation_values(0))

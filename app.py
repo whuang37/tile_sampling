@@ -8,6 +8,8 @@ import time
 from database import Database
 import numpy as np
 import h5py
+import matplotlib.pyplot as plt
+import 
 """
 Notes/Design
 
@@ -44,6 +46,7 @@ class Application(tk.Frame):
         self.create_image_canvas()
         gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
         self.initiate_markers()
+        self.next_call = time.process_time() - 1
         self.create_scrollbar()
         
         self.master.rowconfigure(1, weight=1)
@@ -53,6 +56,8 @@ class Application(tk.Frame):
         self.create_binds()
         self.create_navigator()
         
+        self.inf_frame = InformationFrame(self.master, self.cur_tile.get())
+        self.inf_frame.grid(row=2, column=0, sticky="ns", rowspan=2)
         
     def create_scrollbar(self):
         self.vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
@@ -180,11 +185,18 @@ class Application(tk.Frame):
     def _markers(self, event, m_type):
         if self.var_fin.get() == 1: # if the grid is marked as finished
             return
+        elif time.time() > self.next_call: # adds a time delay to allow counter to go up
+            self.next_call = time.time() + .5
+        else:
+            return
+        
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
         self.create_marker(m_type, self.cur_tile.get(), x, y)
         
         Database(parent_dir).add_value(m_type, self.cur_tile.get(), x, y)
+        
+        self.inf_frame._update_tile_info(self.cur_tile.get())
         
     def initiate_markers(self):
         data = Database(parent_dir).query_tile_annotations(self.cur_tile.get())
@@ -262,11 +274,43 @@ class GridImages:
         canvas.imagetk = imagetk # reference for garbage collection
     
 class InformationFrame(tk.Frame):
-    def __init__(self, master):
-        tk.Frame.__init__(self)
+    def __init__(self, master, cur_tile):
+        tk.Frame.__init__(self, cur_tile)
         self.master = master
+        self.cur_tile = cur_tile
         
+        self.create_tile_info()
         
+    def create_tile_info(self):
+        self.tile_info = tk.Frame(self)
+        self.tile_info.pack(side = "bottom")
+        
+        colors = constants.marker_color
+        colors["total"] = "SystemButtonFace"
+        i = 0
+        labels = []
+        for key, color in colors.items():
+            labels.append(tk.Label(self.tile_info, text=key, bg=color, font=("Calibri, 10"), width=7))
+            labels[i].grid(row=3, column=i, sticky='we')
+            i += 1
+        
+        values = Database(parent_dir).tile_annotation_values(self.cur_tile)
+        
+        self.ann_counts = {}
+        i = 0
+        for key, color in colors.items():
+            self.ann_counts[key] = tk.Label(self.tile_info, text=str(values[key]), bg=color, font=("Calibri, 10"), width=7)
+            self.ann_counts[key].grid(row=4, column = i, sticky="we")
+            i += 1
+        
+    def _update_tile_info(self, tile_id):
+        values = Database(parent_dir).tile_annotation_values(tile_id)
+        
+        for key in values:
+            self.ann_counts[key].config(text =str(values[key]))
+        
+    def create_graphs(self):
+        df = Database(parent_dir).all_annotations_df()
 if __name__ == "__main__":
     root = tk.Tk()
     app = Application(root)
