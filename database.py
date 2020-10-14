@@ -14,10 +14,11 @@ from PIL import Image
 class Database:
     def __init__(self, parent_dir):
         self.parent_dir = parent_dir
-        database_path = os.path.join(parent_dir, "database.db")
+        self.database_path = os.path.join(parent_dir, "database.db")
         try:
-            self.conn = sqlite3.connect(database_path)
+            self.conn = sqlite3.connect(self.database_path)
             self.c = self.conn.cursor()
+            
         except sqlite3.Error as error:
             print("Error while connecting to sqlite", error)
             self.conn.close()
@@ -161,19 +162,23 @@ class Database:
     def check_completed(self):
         df = self.all_annotations_df()
         total_annotated = df.values.sum()
-        
         df =self.format_df(df)
+        # reopen connection as it was previously closed
+        
+        self.conn = sqlite3.connect(self.database_path)
+        self.c = self.conn.cursor()
+        finished_tiles = self.get_tiles()
+        df["finished"] =  [finished_tiles[x][1] for x in df.index.tolist()]
+        
         i = constants.min_perc
         j = constants.max_ce
-        
-        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i)][(df["ce bi"] < j) & (df["ce mu"] < j) & (df["ce affected"] < j)])
+        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i) & (df["finished"] == 1)][(df["ce bi"] < j) & (df["ce mu"] < j) & (df["ce affected"] < j)])
         if total_annotated >= constants.max_annotations:
             completed = True
         elif num_passed_tiles >= constants.passed_tiles_req:
             completed = True
         else:
             completed = False
-        
         return completed, total_annotated, num_passed_tiles
     
     def create_graphs(self):

@@ -113,10 +113,11 @@ class Application(tk.Frame):
         self.finished.grid(row = 3, column = 1)
         
     def _update_finished(self, tile_id):
-        print(tile_id, self.var_fin.get())
         if self.var_fin.get() == 1:
             self.inf_frame._update_graphs()
+        
         Database(parent_dir).finish_tile(tile_id, self.var_fin.get())
+        self.inf_frame._update_completed_label(self.var_fin.get())
         
     def _increment_tile(self, i):
         if (self.cur_tile.get() >= constants.grids_h * constants.grids_w) & (i == 1):
@@ -284,6 +285,8 @@ class InformationFrame(tk.Frame):
         self.create_graph_canvas()
         
         self.rowconfigure(3, weight=1)
+        
+        self.completed = False
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.grid(row=4, column=0)
@@ -303,7 +306,7 @@ class InformationFrame(tk.Frame):
         i = 0
         for key, color in colors.items():
             self.ann_counts[key] = tk.Label(self.tile_info, text=str(values[key]), bg=color, font=("Calibri, 10"), width=7)
-            self.ann_counts[key].grid(row=4, column = i, sticky="we")
+            self.ann_counts[key].grid(row=4, column =i, sticky="we")
             i += 1
         
     def _update_tile_info(self, tile_id):
@@ -311,7 +314,23 @@ class InformationFrame(tk.Frame):
         
         for key in values:
             self.ann_counts[key].config(text =str(values[key]))
+    
+    def _update_completed_label(self, finished):
+        # finished to check when the user checks/unchecks the finished box
+        if finished == True:
+            self.completed, total_annotated, num_passed_tiles = Database(parent_dir).check_completed()
+            completed_text = f"COMPLETED - EXPORT IMMEDIATELY\n{total_annotated} CELLS ANNOTATED\n{num_passed_tiles} TILES MATCHING CRITERA"
+
+        self.completed = True
         
+        if self.completed == True & (finished == False):
+            self.completed_label.destroy()
+        elif self.completed & (finished == True):
+            self.completed_label = tk.Label(self, text=completed_text, bg="red", font="Calibri 18", height=3)
+            self.completed_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
+        else:
+            return
+    
     def create_graph_canvas(self):
         self.graphs_canvas = tk.Canvas(self)
         img = Database(parent_dir).create_graphs()
