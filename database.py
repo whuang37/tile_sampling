@@ -89,9 +89,9 @@ class Database:
         df["TILE_ID"] = tile_indices[df["TILE_ID"]]
         
         column_num = df["TILE_ID"] % dimensions[1]
-        row_num = np.floor(df["TILE_ID"] / (dimensions[0] + 1))
-        df["X"] = df["X"].multiply((column_num - 1) * constants.grid_dimensions[0])
-        df["Y"] = df["Y"].multiply((row_num - 1) * constants.grid_dimensions[1])
+        row_num = df["TILE_ID"].floordiv(dimensions[1])
+        df["X"] = df["X"].sum((column_num) * constants.grid_dimensions[0])
+        df["Y"] = df["Y"].sum((row_num) * constants.grid_dimensions[1])
     
     def query_tile_annotations(self, tile_id):
         tile_query = '''SELECT * from annotations where TILE_ID = ?'''
@@ -172,7 +172,7 @@ class Database:
         
         i = constants.min_perc
         j = constants.max_ce
-        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i) & (df["finished"] == 1)][(df["ce bi"] < j) & (df["ce mu"] < j) & (df["ce affected"] < j)])
+        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i) & (df["finished"] == 1) & (df["ce bi"] < j) & (df["ce mu"] < j) & (df["ce affected"] < j)])
         if total_annotated >= constants.max_annotations:
             completed = True
         elif num_passed_tiles >= constants.passed_tiles_req:
@@ -223,7 +223,6 @@ class Database:
         canvas.draw()
         
         img = Image.frombytes("RGB", canvas.get_width_height(), canvas.tostring_rgb())
-        img.save("test222222.png")
         plt.close(fig)
         
         return img

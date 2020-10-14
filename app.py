@@ -291,6 +291,9 @@ class InformationFrame(tk.Frame):
         self.update_graph_button = tk.Button(self, text="Update Graphs", font=("Calibri 15"), command=self._update_graphs)
         self.update_graph_button.grid(row=5,column=0, sticky="we", padx=3, pady=3)
         
+        self.completed_label = tk.Label(self, bg="red", font="Calibri 18", height=3)
+        self._update_completed_label(True)
+        
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.grid(row=4, column=0)
@@ -321,19 +324,19 @@ class InformationFrame(tk.Frame):
     
     def _update_completed_label(self, finished):
         # finished to check when the user checks/unchecks the finished box
-        if finished == True:
+        if finished:
             self.completed, total_annotated, num_passed_tiles = Database(parent_dir).check_completed()
-            completed_text = f"COMPLETED - EXPORT IMMEDIATELY\n{total_annotated} CELLS ANNOTATED\n{num_passed_tiles} TILES MATCHING CRITERA"
-
-        self.completed = True
-        
-        if self.completed == True & (finished == False):
-            self.completed_label.destroy()
-        elif self.completed & (finished == True):
-            self.completed_label = tk.Label(self, text=completed_text, bg="red", font="Calibri 18", height=3)
-            self.completed_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
+            self.completed = True
+            
+            if self.completed:
+                completed_text = f"COMPLETED - EXPORT IMMEDIATELY\n{total_annotated} CELLS ANNOTATED\n{num_passed_tiles} TILES MATCHING CRITERA"
+                self.completed_label.config(text=completed_text)
+                self.completed_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
+            else:
+                self.completed_label.grid_forget()
         else:
-            return
+            self.completed_label.grid_forget()
+                
     
     def create_graph_canvas(self):
         self.graphs_canvas = tk.Canvas(self)
@@ -346,7 +349,6 @@ class InformationFrame(tk.Frame):
         
         self.create_graph_scrollbar()
         self.graphs_canvas.grid(row=3, column=0, sticky="ns")
-        
         
     def create_graph_scrollbar(self):
         self.vbar = tk.Scrollbar(self, orient="vertical", command=self.graphs_canvas.yview)
