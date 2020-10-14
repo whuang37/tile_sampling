@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 class Database:
-    def __init__(self, folder_path):
-        self.folder_path = folder_path
-        database_path = os.path.join(folder_path, "database.db")
+    def __init__(self, parent_dir):
+        self.parent_dir = parent_dir
+        database_path = os.path.join(parent_dir, "database.db")
         try:
             self.conn = sqlite3.connect(database_path)
             self.c = self.conn.cursor()
@@ -54,7 +54,7 @@ class Database:
         
         # hdf5 conversion
         array = np.load(array_path)
-        save_path = os.path.join(self.folder_path, "tile_array.h5")
+        save_path = os.path.join(self.parent_dir, "tile_array.h5")
         with h5py.File(save_path, "w") as hf:
             hf.create_dataset("tiles", data=array)
         
@@ -76,11 +76,21 @@ class Database:
         self.c.execute(delete_query, data_values)
         self.close()
         
-    def query_all_annotations(self):
+    def export_all_annotations(self):
         all_query = '''SELECT * from annotations'''
-        self.c.execute(all_query)
-        annotations = self.c.fetchall()
-        return annotations
+        df = pd.read_sql_query(all_query, self.conn)
+        self.close()
+        array_path = os.path.join(self.parent_dir, "tile_array.hdf5")
+        with h5py.File(array_path, "r") as hf:
+            tile_indices = hf["tile_index"][0:100]
+            dimensions = tuple(hf["rows-columns"][0:2])
+        
+        df["TILE_ID"] = tile_indices[df["TILE_ID"]]
+        
+        column_num = df["TILE_ID"] % dimensions[1]
+        row_num = np.floor(df["TILE_ID"] / (dimensions[0] + 1))
+        df["X"] = df["X"].multiply((column_num - 1) * constants.grid_dimensions[0])
+        df["Y"] = df["Y"].multiply((row_num - 1) * constants.grid_dimensions[1])
     
     def query_tile_annotations(self, tile_id):
         tile_query = '''SELECT * from annotations where TILE_ID = ?'''
@@ -135,7 +145,7 @@ class Database:
         return values_dict
     
     def format_df(self, df):
-        total = df.sum(axis=1).cumsum() # total number with unaffected
+        total = df.sum(axis=1).cumsum() # total number with unaffected as a cumulative sum series
         df[["bi", "mu", "bimu"]] = df[["bi", "mu", "bimu"]].cumsum(axis=0)
         df["affected"] = df[["bi", "mu", "bimu"]].sum(axis=1)
         df = df.div(total, axis=0).multiply(100).round(2)
@@ -149,13 +159,14 @@ class Database:
         return df
     
     def check_completed(self):
-        df =self.format_df(self.all_annotations_df())
+        df = self.all_annotations_df()
+        total_annotated = df.values.sum()
+        
+        df =self.format_df(df)
         i = constants.min_perc
-        j = constants.min_ce
+        j = constants.max_ce
         
-        total_annotated = df.iloc[-1, 0:4].values.sum()
-        
-        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i)][(df["ce bi"] > j) & (df["ce mu"] > j) & (df["ce affected"] > j)])
+        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i)][(df["ce bi"] < j) & (df["ce mu"] < j) & (df["ce affected"] < j)])
         if total_annotated >= constants.max_annotations:
             completed = True
         elif num_passed_tiles >= constants.passed_tiles_req:
@@ -222,3 +233,4 @@ if __name__ == "__main__":
     # Database(r"test").initiate(r"test\test_100_tile_stack.npy")
     print(Database(r"test").check_completed())
     # print(Database(r"test").tile_annotation_values(0))
+    Database(r"test").export_all_annotations()

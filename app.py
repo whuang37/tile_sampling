@@ -160,10 +160,10 @@ class Application(tk.Frame):
         self.canvas.focus_set()
     
     def format_image(self, *colors): # opening and changing color channels of the picture
-        array_path = os.path.join(parent_dir, "tile_array.h5")
+        array_path = os.path.join(parent_dir, "tile_array.hdf5")
         
         with h5py.File(array_path, "r") as hf:
-            cur_array = hf["tiles"][self.cur_tile.get()]
+            cur_array = hf["images"][self.cur_tile.get()]
         
         cur_img = Image.fromarray(cur_array, "RGB")
         del cur_array

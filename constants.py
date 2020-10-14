@@ -1,5 +1,6 @@
 grids_h = 10 # how many grids to make horizontally
 grids_w = 10 # how many grids to make vertically
+grid_dimensions = (1024, 1024)
 
 zooming_factor = 5
 tuning_factor = -20 # tunes the position of the zoom 
@@ -14,5 +15,5 @@ marker_color = {keys[0]: "firebrick3", keys[1]: "cyan", keys[2]: "yellow", keys[
 
 max_annotations = 3000
 min_perc = 2
-min_ce = 5
+max_ce = 5
 passed_tiles_req = 10
