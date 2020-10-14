@@ -268,7 +268,7 @@ class GridImages:
         if y > 0:
             y = 0
             
-        self.zoomed.moveto("image", x=str(x), y=str(y)) # very under documented function
+        self.zoomed.moveto("image", x=str(x), y=str(y)) # very under documented function11
         
     def show_img(self, img, canvas):
         imagetk = ImageTk.PhotoImage(img)
@@ -287,16 +287,20 @@ class InformationFrame(tk.Frame):
         self.rowconfigure(3, weight=1)
         
         self.completed = False
+        
+        self.update_graph_button = tk.Button(self, text="Update Graphs", font=("Calibri 15"), command=self._update_graphs)
+        self.update_graph_button.grid(row=5,column=0, sticky="we", padx=3, pady=3)
+        
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.grid(row=4, column=0)
         
         colors = constants.marker_color
-        colors["total"] = "SystemButtonFace"
+        colors["total"] = "limegreen"
         i = 0
         labels = []
         for key, color in colors.items():
-            labels.append(tk.Label(self.tile_info, text=key, bg=color, font=("Calibri, 10"), width=7))
+            labels.append(tk.Label(self.tile_info, text=key, bg=color, font=("Calibri, 10"), width=9))
             labels[i].grid(row=3, column=i, sticky='we')
             i += 1
         
@@ -305,7 +309,7 @@ class InformationFrame(tk.Frame):
         self.ann_counts = {}
         i = 0
         for key, color in colors.items():
-            self.ann_counts[key] = tk.Label(self.tile_info, text=str(values[key]), bg=color, font=("Calibri, 10"), width=7)
+            self.ann_counts[key] = tk.Label(self.tile_info, text=str(values[key]), bg=color, font=("Calibri, 10"), width=9)
             self.ann_counts[key].grid(row=4, column =i, sticky="we")
             i += 1
         
