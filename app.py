@@ -129,6 +129,53 @@ class Application(tk.Frame):
         ok_button = tk.Button(colors, text="Ok", command=confirm_colors)
         ok_button.grid(column=3, row=5, sticky="e", pady=3, padx=3)
         
+    def export_images(self):
+        export = tk.Toplevel()
+        export.transient(root)
+        export.title("Export")
+        export.columnconfigure(2, weight = 1)
+        
+        case_name = tk.StringVar()
+        new_folder_path = tk.StringVar()
+        
+        name = tk.Label(export, text = "Case Name:")
+        name.grid(row = 1, column = 0, padx =10, pady = 10, sticky = "nsew")
+        
+        name_entry = tk.Entry(export, textvariable = case_name)
+        name_entry.grid(row = 1, column = 1, padx =10, pady = 10, sticky = "nsew")
+        
+        folder_entry = tk.Entry(export, textvariable = new_folder_path)
+        folder_entry.grid(row = 2, column = 0, padx =10, pady = 10, sticky = "nsew")
+        
+        def select_folder():
+            """Selects folder where exported images should go.
+
+                Gets the image path from file explorer on click of the browse button.
+            """
+            path = filedialog.askdirectory()
+            if path == "":
+                return
+            else:
+                new_folder_path.set(path + "/")
+                folder_entry.update()
+            
+        folder_button = tk.Button(export, text = "Browse", command = select_folder)
+        folder_button.grid(row = 2, column = 1, padx = 10, pady = 10, sticky = "w")
+        
+        def confirm():
+            """Exports images to folder_path.
+
+            Takes case name and folder path and exports biondi images to the designated folder.
+            """
+            if case_name.get() == "" or new_folder_path.get() == "/":
+                return
+            else:
+                Database(parent_dir).export_all_annotations(new_folder_path.get(), case_name.get())
+                export.destroy()
+        
+        ok_button = tk.Button(export, text = "Okay", command = confirm)
+        ok_button.grid(row = 3, column = 1, padx = 10, pady = 10, sticky = "e")
+        
     def create_scrollbar(self):
         self.vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
         self.vbar.grid(row=1, column=2, sticky='ns')

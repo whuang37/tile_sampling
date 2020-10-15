@@ -77,10 +77,9 @@ class Database:
         self.c.execute(delete_query, data_values)
         self.close()
         
-    def export_all_annotations(self):
+    def export_all_annotations(self, new_folder_path, case_name):
         all_query = '''SELECT * from annotations'''
         df = pd.read_sql_query(all_query, self.conn)
-        self.close()
         array_path = os.path.join(self.parent_dir, "tile_array.hdf5")
         with h5py.File(array_path, "r") as hf:
             tile_indices = hf["tile_index"][0:100]
@@ -90,9 +89,16 @@ class Database:
         
         column_num = df["TILE_ID"] % dimensions[1]
         row_num = df["TILE_ID"].floordiv(dimensions[1])
-        df["X"] = df["X"].sum((column_num) * constants.grid_dimensions[0])
-        df["Y"] = df["Y"].sum((row_num) * constants.grid_dimensions[1])
-    
+        df["X"] = (column_num * constants.grid_dimensions[0]) + df["X"]
+        df["Y"] = (row_num * constants.grid_dimensions[1]) + df["Y"]
+        info_df = self.format_df(self.all_annotations_df())
+        
+        grid_save_path = os.path.join(new_folder_path, f"{case_name}-grids.csv")
+        inf_save_path = os.path.join(new_folder_path, f"{case_name}-info.csv")
+        
+        df.to_csv(grid_save_path)
+        info_df.to_csv(inf_save_path)
+        
     def query_tile_annotations(self, tile_id):
         tile_query = '''SELECT * from annotations where TILE_ID = ?'''
         self.c.execute(tile_query, (tile_id,))
@@ -146,16 +152,16 @@ class Database:
         return values_dict
     
     def format_df(self, df):
-        total = df.sum(axis=1).cumsum() # total number with unaffected as a cumulative sum series
         df[["bi", "mu", "bimu"]] = df[["bi", "mu", "bimu"]].cumsum(axis=0)
         df["affected"] = df[["bi", "mu", "bimu"]].sum(axis=1)
-        df = df.div(total, axis=0).multiply(100).round(2)
+        df["total"] = df [["bi", "mu", "bimu", "un"]].sum(axis=1) # total number with unaffected as a cumulative sum series
+        df[["bi %", "mu %", "bimu %", "affected %"]] = (df[["bi", "mu", "bimu", "affected"]].div(df["total"], axis=0).multiply(100)).round(2)
         # moving CE calc
-        df["ce bi"] = df["bi"].rolling(window=10).std()
-        df["ce mu"] = df["mu"].rolling(window=10).std()
-        df["ce affected"] = df["affected"].rolling(window=10).std()
+        df["ce bi %"] = df["bi %"].rolling(window=10).std()
+        df["ce mu %"] = df["mu %"].rolling(window=10).std()
+        df["ce affected %"] = df["affected %"].rolling(window=10).std()
         # getting the 10 day std as a percentage of the current mean
-        df[["ce bi", "ce mu", "ce affected"]] = df[["ce bi", "ce mu", "ce affected"]].div(df["affected"], axis=0).multiply(100)
+        df[["ce bi %", "ce mu %", "ce affected %"]] = df[["ce bi %", "ce mu %", "ce affected %"]].div(df["affected %"], axis=0).multiply(100)
         
         return df
     
@@ -172,7 +178,7 @@ class Database:
         
         i = constants.min_perc
         j = constants.max_ce
-        num_passed_tiles = len(df[(df["bi"] > i) & (df["mu"] > i) & (df["affected"] > i) & (df["finished"] == 1) & (df["ce bi"] < j) & (df["ce mu"] < j) & (df["ce affected"] < j)])
+        num_passed_tiles = len(df[(df["bi %"] > i) & (df["mu %"] > i) & (df["affected %"] > i) & (df["finished"] == 1) & (df["ce bi %"] < j) & (df["ce mu %"] < j) & (df["ce affected %"] < j)])
         if total_annotated >= constants.max_annotations:
             completed = True
         elif num_passed_tiles >= constants.passed_tiles_req:
@@ -185,7 +191,7 @@ class Database:
         matplotlib.use("Agg")
         df = self.format_df(self.all_annotations_df())
         
-        total = df.sum(axis=1).cumsum() # total number with unaffected
+        total = df["total"] # total number with unaffected
         pie_sizes = df.iloc[-1, 0:4]
         fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
         
@@ -193,24 +199,24 @@ class Database:
                 , startangle=90, radius=2.5)
         ax1.set_title("Annotation Breakdown", y=1.7)
         
-        ax2.plot(total, df["bi"], label="Bi")
+        ax2.plot(total, df["bi %"], label="Bi")
         ax2.set_title("Bi v Total Cells")
         ax2.set_ylabel("Percent Bi")
         ax2.set_xlabel("Total Cells Evaluated")
         
-        ax3.plot(total, df["mu"], label="mu", color="orange")
+        ax3.plot(total, df["mu %"], label="mu", color="orange")
         ax3.set_title("Mu v Total Cells")
         ax3.set_ylabel("Percent Mu")
         ax3.set_xlabel("Total Cells Evaluated")
         
-        ax4.plot(total, df["affected"], label="total affected", color="green")
+        ax4.plot(total, df["affected %"], label="total affected", color="green")
         ax4.set_title("Total Affected v Total Cells")
         ax4.set_ylabel("Percent Affected")
         ax4.set_xlabel("Total Cells Evaluated")
         
-        ax5.plot(total, df["ce bi"], label="Bi")
-        ax5.plot(total, df["ce mu"], label="mu", color="orange")
-        ax5.plot(total, df["ce affected"], label="total affected", color="green")
+        ax5.plot(total, df["ce bi %"], label="Bi")
+        ax5.plot(total, df["ce mu %"], label="mu", color="orange")
+        ax5.plot(total, df["ce affected %"], label="total affected", color="green")
         ax5.axhline(5, color="grey", alpha=.5, dashes=(1,1))
         ax5.set_title("Moving CE v Total Cells")
         ax5.set_ylabel("Moving CE Percentage")
