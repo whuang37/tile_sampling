@@ -53,12 +53,14 @@ class Database:
         
         self.close()
         
-        # hdf5 conversion
-        array = np.load(array_path)
-        save_path = os.path.join(self.parent_dir, "tile_array.h5")
-        with h5py.File(save_path, "w") as hf:
-            hf.create_dataset("tiles", data=array)
+        # # hdf5 conversion
+        # array = np.load(array_path)
+        # save_path = os.path.join(self.parent_dir, "tile_array.h5")
+        # with h5py.File(save_path, "w") as hf:
+        #     hf.create_dataset("tiles", data=array)
         
+        new_array_path = os.path.join(self.parent_dir, "tile_array.hdf5")
+        os.rename(array_path, new_array_path)
         
     def add_value(self, m_type, TILE_ID, x, y):
         data_values = (m_type, TILE_ID, x, y)
@@ -152,7 +154,7 @@ class Database:
         return values_dict
     
     def format_df(self, df):
-        df[["bi", "mu", "bimu"]] = df[["bi", "mu", "bimu"]].cumsum(axis=0)
+        df[["bi", "mu", "bimu", "un"]] = df[["bi", "mu", "bimu", "un"]].cumsum(axis=0)
         df["affected"] = df[["bi", "mu", "bimu"]].sum(axis=1)
         df["total"] = df [["bi", "mu", "bimu", "un"]].sum(axis=1) # total number with unaffected as a cumulative sum series
         df[["bi %", "mu %", "bimu %", "affected %"]] = (df[["bi", "mu", "bimu", "affected"]].div(df["total"], axis=0).multiply(100)).round(2)
@@ -192,7 +194,10 @@ class Database:
         df = self.format_df(self.all_annotations_df())
         
         total = df["total"] # total number with unaffected
-        pie_sizes = df.iloc[-1, 0:4]
+        try:
+            pie_sizes = df.iloc[-1, 0:4]
+        except:
+            pie_sizes = (0,0,0,0)
         fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
         
         ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=["bi", "bi & mu", "mu", "un"], autopct="%1.1f%%"

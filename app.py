@@ -503,7 +503,117 @@ class InformationFrame(tk.Frame):
         self.graphs_canvas.imagetk = imagetk
         self.graphs_canvas.update()
         
+class OpeningWindow:
+    def __init__(self, master):
+        self.master = master
+        # self.master.geometry("580x100")
+        self.master.title("Imaris Screenshot Tool")
+
+        w1 = f"Welcome to the Tile Sampling  Tool!\nIf you are returning to a previous session, please click on the \"Open Previous Folder\" button.\nIf you are starting a new session, please create an empty folder and select it using the \"Initiate Folder\" button."
+
+        self.welcome_label1 = tk.Label(self.master, text = w1)
+        self.welcome_label1.grid(row = 0, column = 2, sticky = 'nswe')
+        
+        self.button_frame = tk.Frame(self.master)
+        self.button_frame.grid(row = 4, column = 2, sticky = 'ns')
+
+        self.find_image_button = tk.Button(self.button_frame, text="Open Previous Folder", command = lambda: self.open_image())
+        self.find_image_button.pack(side = "left", padx = 2 , pady = 2)
+        
+        self.initiate_folder_button = tk.Button(self.button_frame, text = "Initiate Folder", command = self.initiate_folder)
+        self.initiate_folder_button.pack(side = "left", padx = 2 , pady = 2)
+    
+    def open_image(self):
+        """Opens initial Application and destroys initial window assess
+
+        Creates Application and destroys initial assets so they do not interfere with
+        the Application class.
+        
+        Args:
+            welcome_label1 (tk.Label): Label of text used to welcome user into the program.
+            welcome_label2 (tk.Label): Label of text used to welcome user into the program.
+            welcome_label3 (tk.Label): Label of text used to welcome user into the program.
+            welcome_label4 (tk.Label): Label of text used to welcome user into the program.
+            button_frame (tk.Frame): Frame containing buttons in the opening window.
+        """
+        path = filedialog.askdirectory()
+        if path == "":
+            return
+        else:
+            self.welcome_label1.destroy()
+            self.button_frame.destroy()
+            global parent_dir
+            parent_dir = path
+            i = Application(root)
+
+    def confirm_function(self, folder_path, file_path, nf):
+        """Initializes a new folder and creates a success label
+
+        Calls FileManagement to initate a folder with a grid image file 
+        and annotator initials. Creates a success window on completion.
+        
+        Args:
+            folder_path (str): Path to folder where images will be saved selected from the askdirectory.
+            file_path (str): Path to the hdf5 image to be moved into the saving folder.
+            nf (tk.Toplevel): Toplevel window to select the folder path and file path.
+        """
+        if folder_path == "" or file_path == "":
+            return
+        
+        nf.destroy()
+
+        global parent_dir
+        parent_dir = folder_path
+        
+        Database(parent_dir).initiate(file_path)
+        done_screen = tk.Toplevel()
+
+        success_label1 = tk.Label(done_screen, text = "Folder sucessfully initialized!")
+        success_label1.grid(row = 0, column = 0, sticky = 'nswe')
+
+        def init_confirm():
+            done_screen.destroy()
+            self.welcome_label1.destroy()
+            self.button_frame.destroy()
+            i = Application(root)
+            
+        close_button = tk.Button(done_screen, text = "OK", command = lambda: init_confirm())
+        close_button.grid(row = 3, column = 0, sticky = 's')
+
+    def initiate_folder(self):
+        """Creates a Window for inputting args to initialize folder
+
+        Creates a window and corresponding buttons and entry fields for users
+        to enter in data to initialize a folder for biondi body analysis.
+        """
+        nf = tk.Toplevel()
+        # nf.geometry("365x165")
+        nf.transient(root)
+
+        folder_path = tk.StringVar()
+        folder_ebox = tk.Entry(nf, textvariable = folder_path, width = 50)
+        folder_ebox.grid(row = 1, column = 0)
+        
+        folder_button = tk.Button(nf, text = "Browse...", command = lambda: folder_path.set(filedialog.askdirectory()))
+        folder_button.grid(row = 1, column = 1)
+
+        file_name = tk.StringVar()
+        file_ebox = tk.Entry(nf, textvariable = file_name, width = 50)
+        file_ebox.grid(row = 4, column = 0)
+
+        file_button = tk.Button(nf, text = "Browse...", command = lambda: file_name.set(filedialog.askopenfilename()))
+        file_button.grid(row = 4, column = 1)
+
+        confirm_button = tk.Button(nf, text = "Confirm", command = lambda: self.confirm_function(folder_path.get(), file_name.get(), nf))
+        confirm_button.grid(row = 8, column = 1)
+
+        folder_label = tk.Label(nf, text = "Enter an empty folder directory:")
+        folder_label.grid(row = 0, column = 0, sticky = 'w')
+
+        file_label = tk.Label(nf, text = "Enter the hdf5 file directory:")
+        file_label.grid(row = 3, column = 0, sticky = 'w')
+
 if __name__ == "__main__":
     root = tk.Tk()
-    app = Application(root)
+    app = OpeningWindow(root)
     root.mainloop()
