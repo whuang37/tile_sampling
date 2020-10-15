@@ -13,7 +13,7 @@ marker_color = {keys[0]: "firebrick3", keys[1]: "cyan", keys[2]: "yellow", keys[
 
 # completion values
 
-max_annotations = 3000
+max_annotations = 3500
 min_perc = 2
 max_ce = 5
 passed_tiles_req = 10

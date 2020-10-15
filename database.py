@@ -1,11 +1,8 @@
 import sqlite3
-import csv
-from shutil import copy
 import os
 import numpy as np
 import pandas as pd
 import h5py
-import math
 import constants
 import matplotlib
 import matplotlib.pyplot as plt
@@ -82,6 +79,9 @@ class Database:
     def export_all_annotations(self, new_folder_path, case_name):
         all_query = '''SELECT * from annotations'''
         df = pd.read_sql_query(all_query, self.conn)
+        
+        unadjusted_grid_save_path = os.path.join(new_folder_path, f"{case_name}-unadjusted-grids.csv")
+        df.to_csv(unadjusted_grid_save_path)
         array_path = os.path.join(self.parent_dir, "tile_array.hdf5")
         with h5py.File(array_path, "r") as hf:
             tile_indices = hf["tile_index"][0:100]
@@ -95,10 +95,10 @@ class Database:
         df["Y"] = (row_num * constants.grid_dimensions[1]) + df["Y"]
         info_df = self.format_df(self.all_annotations_df())
         
-        grid_save_path = os.path.join(new_folder_path, f"{case_name}-grids.csv")
+        adjusted_grid_save_path = os.path.join(new_folder_path, f"{case_name}-adjusted-grids.csv")
         inf_save_path = os.path.join(new_folder_path, f"{case_name}-info.csv")
         
-        df.to_csv(grid_save_path)
+        df.to_csv(adjusted_grid_save_path)
         info_df.to_csv(inf_save_path)
         
     def query_tile_annotations(self, tile_id):
@@ -158,12 +158,17 @@ class Database:
         df["affected"] = df[["bi", "mu", "bimu"]].sum(axis=1)
         df["total"] = df [["bi", "mu", "bimu", "un"]].sum(axis=1) # total number with unaffected as a cumulative sum series
         df[["bi %", "mu %", "bimu %", "affected %"]] = (df[["bi", "mu", "bimu", "affected"]].div(df["total"], axis=0).multiply(100)).round(2)
+        # add bimu % to bi % and mu %
+        # fix later
+        df[["bi %", "mu %"]] = df[["bi %", "mu %"]].add(df["bimu"], axis=0)
         # moving CE calc
         df["ce bi %"] = df["bi %"].rolling(window=10).std()
         df["ce mu %"] = df["mu %"].rolling(window=10).std()
         df["ce affected %"] = df["affected %"].rolling(window=10).std()
-        # getting the 10 day std as a percentage of the current mean
-        df[["ce bi %", "ce mu %", "ce affected %"]] = df[["ce bi %", "ce mu %", "ce affected %"]].div(df["affected %"], axis=0).multiply(100)
+        # getting the 10 day std as a percentage of the current mean for each classification
+        df["ce bi %"] = df["ce bi %"].div(df["bi %"])
+        df["ce mu %"] = df["ce mu %"].div(df["mu %"])
+        df["ce affected %"] = df["ce affected %"].div(df["affected %"])
         
         return df
     
@@ -171,8 +176,8 @@ class Database:
         df = self.all_annotations_df()
         total_annotated = df.values.sum()
         df =self.format_df(df)
-        # reopen connection as it was previously closed
         
+        # reopen connection as it was previously closed
         self.conn = sqlite3.connect(self.database_path)
         self.c = self.conn.cursor()
         finished_tiles = self.get_tiles()
@@ -180,6 +185,8 @@ class Database:
         
         i = constants.min_perc
         j = constants.max_ce
+        
+        # 10 recent in a row
         num_passed_tiles = len(df[(df["bi %"] > i) & (df["mu %"] > i) & (df["affected %"] > i) & (df["finished"] == 1) & (df["ce bi %"] < j) & (df["ce mu %"] < j) & (df["ce affected %"] < j)])
         if total_annotated >= constants.max_annotations:
             completed = True
@@ -200,8 +207,8 @@ class Database:
             pie_sizes = (0,0,0,0)
         fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
         
-        ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=["bi", "bi & mu", "mu", "un"], autopct="%1.1f%%"
-                , startangle=90, radius=2.5)
+        ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=["bi", "bi & mu", "mu", "un"], autopct="%1.1f%%",
+                startangle=90, radius=2.5)
         ax1.set_title("Annotation Breakdown", y=1.7)
         
         ax2.plot(total, df["bi %"], label="Bi")
@@ -246,6 +253,5 @@ absolute y coord (from og image)
 """
 if __name__ == "__main__":
     # Database(r"test").initiate(r"test\test_100_tile_stack.npy")
-    print(Database(r"test").check_completed())
+    Database(r"test").format_df(Database(r"test").all_annotations_df)
     # print(Database(r"test").tile_annotation_values(0))
-    Database(r"test").export_all_annotations()

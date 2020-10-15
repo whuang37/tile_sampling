@@ -2,15 +2,12 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
 from PIL import Image, ImageTk
-import math
 import os
 import constants
 import time
 from database import Database
 import numpy as np
 import h5py
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import(FigureCanvasTkAgg, NavigationToolbar2Tk)
 """
 Notes/Design
 
@@ -435,7 +432,7 @@ class InformationFrame(tk.Frame):
         i = 0
         for key, color in colors.items():
             self.ann_counts[key] = tk.Label(self.tile_info, text=str(values[key]), bg=color, font=("Calibri, 10"), width=9)
-            self.ann_counts[key].grid(row=4, column =i, sticky="we")
+            self.ann_counts[key].grid(row=4, column=i, sticky="we")
             i += 1
         
     def _update_tile_info(self, tile_id):
@@ -448,7 +445,7 @@ class InformationFrame(tk.Frame):
         # finished to check when the user checks/unchecks the finished box
         if finished:
             self.completed, total_annotated, num_passed_tiles = Database(parent_dir).check_completed()
-            self.completed = True
+            # self.completed = True
             
             if self.completed:
                 completed_text = f"COMPLETED - EXPORT IMMEDIATELY\n{total_annotated} CELLS ANNOTATED\n{num_passed_tiles} TILES MATCHING CRITERA"
