@@ -208,7 +208,7 @@ class Database:
         fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
         
         ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=["bi", "bi & mu", "mu", "un"], autopct="%1.1f%%",
-                startangle=90, radius=2.5)
+                startangle=90, radius=2.0)
         ax1.set_title("Annotation Breakdown", y=1.7)
         
         ax2.plot(total, df["bi %"], label="Bi")
