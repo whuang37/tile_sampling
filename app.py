@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import filedialog
 from tkinter import ttk
 from PIL import Image, ImageTk
 import math
@@ -26,7 +27,9 @@ class: the canvas itself and building its functions
 markers: markers for the 4 types of things
 """
 
+global parent_dir 
 parent_dir = r"test"
+
 class Application(tk.Frame):
     def __init__(self, master):
         self.master = master
@@ -52,7 +55,79 @@ class Application(tk.Frame):
         self.master.columnconfigure(3, weight=1)
         
         self.inf_frame = InformationFrame(self.master, self.cur_tile.get())
-        self.inf_frame.grid(row=1, column=0, sticky="ns", rowspan=3)
+        self.inf_frame.grid(row=0, column=0, sticky="ns", rowspan=4)
+        
+        self.create_optionbar()
+        
+    def create_optionbar(self):
+        self.option_bar = tk.Frame(self.master)
+        self.option_bar.grid(row=0, column=1, columnspan=3, sticky='we')
+        # file menu
+        file_b = tk.Menubutton(self.option_bar, text = "File", relief = "raised")
+        file_menu = tk.Menu(file_b, tearoff = False)
+        file_b.configure(menu = file_menu)
+        file_b.pack(side = "left")
+        
+        file_menu.add_command (label = "Open New Folder", command = self.open_new_folder)
+        file_menu.add_command(label = "Export Images", command = self.export_images)
+        file_menu.add_command(label = "Exit", command = root.quit)
+        
+        # view menu
+        view_b = tk.Menubutton(self.option_bar, text = "View", relief = "raised")
+        view_menu = tk.Menu(view_b, tearoff = False)
+        view_b.configure(menu = view_menu)
+        view_b.pack(side = "left")
+        
+        view_menu.add_command(label = "Calibrate Colors", command = self.calibrate_colors)
+        # view_menu.add_command(label = "Set Window to Original Size", command = self.original_size)
+        
+        # variables for color calibration
+        self.r = tk.DoubleVar(value=100)
+        self.g = tk.DoubleVar(value=100)
+        self.b = tk.DoubleVar(value=100)
+        
+    def open_new_folder(self):
+        global parent_dir
+        previous_dir = parent_dir
+        parent_dir = filedialog.askdirectory()
+
+        if parent_dir:
+            self._update_image()
+            self.inf_frame._update_graphs()
+        else:
+            parent_dir = previous_dir
+            
+    def export_images(self):
+        pass
+    
+    def calibrate_colors(self):
+        colors = tk.Toplevel()
+        colors.transient(root)
+        colors.title("Color Calibration")
+        colors.grab_set()
+        
+        colors.rowconfigure(5, weight=1)
+        r_scale = tk.Scale(colors, from_=0, to=400, orient="horizontal", length=250, variable=self.r, label="Red", fg="red")
+        r_scale.grid(column=1, row=2, columnspan=3)
+        g_scale = tk.Scale(colors, from_=0, to=400, orient="horizontal", length=250, variable=self.g, label="Green", fg="green")
+        g_scale.grid(column=1, row=3, columnspan=3)
+        b_scale = tk.Scale(colors, from_=0, to=400, orient="horizontal", length=250, variable=self.b, label="Blue", fg="blue")
+        b_scale.grid(column=1, row=4, columnspan=3)
+        
+        def color_reset():
+            self.r.set(100)
+            self.g.set(100)
+            self.b.set(100)
+            
+        reset_button = tk.Button(colors, text="Reset", command=color_reset)
+        reset_button.grid(column=3, row=5, pady=3, padx=3)
+        
+        def confirm_colors():
+            channels = (self.r.get() / 100, self.g.get() / 100, self.b.get() / 100)
+            self._update_image(channels)
+            colors.destroy()
+        ok_button = tk.Button(colors, text="Ok", command=confirm_colors)
+        ok_button.grid(column=3, row=5, sticky="e", pady=3, padx=3)
         
     def create_scrollbar(self):
         self.vbar = tk.Scrollbar(self.master, orient='vertical', command=self.canvas.yview)
@@ -136,7 +211,7 @@ class Application(tk.Frame):
         else:
             self.cur_img = self.format_image(colors[0])
             
-        try:
+        try: # try for startup call
             self.canvas.destroy()
             self.zoomed_canvas.destroy()
         except:
