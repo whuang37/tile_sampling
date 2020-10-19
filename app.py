@@ -506,7 +506,7 @@ class OpeningWindow:
     def __init__(self, master):
         self.master = master
         # self.master.geometry("580x100")
-        self.master.title("Imaris Screenshot Tool")
+        self.master.title("Tile Sampling Tool")
 
         w1 = f"Welcome to the Tile Sampling  Tool!\nIf you are returning to a previous session, please click on the \"Open Previous Folder\" button.\nIf you are starting a new session, please create an empty folder and select it using the \"Initiate Folder\" button."
 

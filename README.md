@@ -21,7 +21,7 @@ The Tile Sampling Annotation Tool is a markup application used in conjunction wi
 
 - clone the github repository in your local system `git clone https://github.com/whuang37/tile_sampling.git`
 - move into the tile_sampling repository with `cd tile_sampling`
-- install all the libraries mentioned in [requirements.txt] using `pip install -r requirements.txt`
+- install all the libraries mentioned in [requirements.txt](https://github.com/whuang37/tile_sampling/blob/main/requirements.txt) using `pip install -r requirements.txt`
 - run the main python file `python app.py`
 
 # 3. Support
