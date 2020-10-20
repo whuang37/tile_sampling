@@ -1,5 +1,3 @@
-grids_h = 10 # how many grids to make horizontally
-grids_w = 10 # how many grids to make vertically
 grid_dimensions = (1024, 1024)
 
 zooming_factor = 5

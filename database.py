@@ -39,17 +39,6 @@ class Database:
                                                                     
         self.c.execute(create_grid_query)
         
-        grid_completion = []
-        for i in range (0, 100):
-            x = (i, False)
-            grid_completion.append(x)
-            
-        add_grid_query = '''INSERT INTO tile (TILE_ID, FINISHED)
-                                                VALUES(?, ?)'''
-        self.c.executemany(add_grid_query, grid_completion)
-        
-        self.close()
-        
         # # hdf5 conversion
         # array = np.load(array_path)
         # save_path = os.path.join(self.parent_dir, "tile_array.h5")
@@ -57,8 +46,54 @@ class Database:
         #     hf.create_dataset("tiles", data=array)
         
         new_array_path = os.path.join(self.parent_dir, "tile_array.hdf5")
+        print(new_array_path)
         os.rename(array_path, new_array_path)
         
+        with h5py.File(new_array_path, "r") as hf:
+            array_size = len(hf["images"])
+            
+        grid_completion = [(i, False) for i in range(0, array_size)]
+        
+        add_grid_query = '''INSERT INTO tile (TILE_ID, FINISHED)
+                                                VALUES(?, ?)'''
+        self.c.executemany(add_grid_query, grid_completion)
+        
+        self.close()
+        
+    def update_hdf5(self, new_hdf5_path):
+        new_hdf5_path = new_hdf5_path[:-1] # remove slash at the end
+        new_array_path = os.path.join(self.parent_dir, "tile_array.hdf5") # incase slashes are wrong
+        print(new_array_path)
+        if os.path.exists(new_array_path):
+            os.remove(new_array_path)
+        else:
+            print("path does not exist")
+            return 1
+        
+        os.rename(new_hdf5_path, new_array_path)
+        with h5py.File(new_array_path, "r") as hf:
+            array_size = len(hf["images"])
+            
+        old_size = self.get_num_tiles()
+        
+        additional_tiles = [(i, False) for i in range(old_size, array_size)]
+        self.conn = sqlite3.connect(self.database_path)
+        self.c = self.conn.cursor()
+        
+        add_grid_query = '''INSERT INTO tile (TILE_ID, FINISHED)
+                                                VALUES(?, ?)'''
+        self.c.executemany(add_grid_query, additional_tiles)
+        
+        self.close()
+        
+    def get_num_tiles(self):
+        get_num_tiles_query = '''SELECT COUNT(*) FROM tile'''
+        self.c.execute(get_num_tiles_query)
+        num = self.c.fetchall()
+        self.close()
+        
+        return num[0][0]
+    
     def add_value(self, m_type, TILE_ID, x, y):
         data_values = (m_type, TILE_ID, x, y)
         
@@ -84,7 +119,7 @@ class Database:
         df.to_csv(unadjusted_grid_save_path)
         array_path = os.path.join(self.parent_dir, "tile_array.hdf5")
         with h5py.File(array_path, "r") as hf:
-            tile_indices = hf["tile_index"][0:100]
+            tile_indices = hf["tile_index"][0:]
             dimensions = tuple(hf["rows-columns"][0:2])
         
         df["TILE_ID"] = tile_indices[df["TILE_ID"]]
@@ -253,5 +288,6 @@ absolute y coord (from og image)
 """
 if __name__ == "__main__":
     # Database(r"test").initiate(r"test\test_100_tile_stack.npy")
-    Database(r"test").format_df(Database(r"test").all_annotations_df)
+    # Database(r"test").format_df(Database(r"test").all_annotations_df)
     # print(Database(r"test").tile_annotation_values(0))
+    Database(r"testingaddition").update_hdf5("xx.hdf5")

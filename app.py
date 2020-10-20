@@ -38,6 +38,8 @@ class Application(tk.Frame):
         bools = [i[1] for i in self.finished_bools]
         first_unfinished = next((i for i, j in enumerate(bools) if j == False), 0)
         
+        self.max_tiles = Database(parent_dir).get_num_tiles()
+        
         self.cur_tile = tk.IntVar()
         self.cur_tile.set(self.finished_bools[first_unfinished][0])
         self.cur_img = self.format_image()
@@ -60,28 +62,75 @@ class Application(tk.Frame):
         self.option_bar = tk.Frame(self.master)
         self.option_bar.grid(row=0, column=1, columnspan=3, sticky='we')
         # file menu
-        file_b = tk.Menubutton(self.option_bar, text = "File", relief = "raised")
-        file_menu = tk.Menu(file_b, tearoff = False)
-        file_b.configure(menu = file_menu)
-        file_b.pack(side = "left")
+        file_b = tk.Menubutton(self.option_bar, text="File", relief="raised")
+        file_menu = tk.Menu(file_b, tearoff=False)
+        file_b.configure(menu=file_menu)
+        file_b.pack(side="left")
         
-        file_menu.add_command (label = "Open New Folder", command = self.open_new_folder)
-        file_menu.add_command(label = "Export Images", command = self.export_images)
-        file_menu.add_command(label = "Exit", command = root.quit)
+        file_menu.add_command (label="Open New Folder", command=self.open_new_folder)
+        file_menu.add_command(label="Export Images", command=self.export_images)
+        file_menu.add_command(label="Update HDF5 File", command=self.update_hdf5)
+        file_menu.add_command(label="Exit", command=root.quit)
         
         # view menu
-        view_b = tk.Menubutton(self.option_bar, text = "View", relief = "raised")
-        view_menu = tk.Menu(view_b, tearoff = False)
-        view_b.configure(menu = view_menu)
-        view_b.pack(side = "left")
+        view_b = tk.Menubutton(self.option_bar, text="View", relief="raised")
+        view_menu = tk.Menu(view_b, tearoff=False)
+        view_b.configure(menu=view_menu)
+        view_b.pack(side="left")
         
-        view_menu.add_command(label = "Calibrate Colors", command = self.calibrate_colors)
+        view_menu.add_command(label="Calibrate Colors", command=self.calibrate_colors)
         # view_menu.add_command(label = "Set Window to Original Size", command = self.original_size)
         
         # variables for color calibration
         self.r = tk.DoubleVar(value=100)
         self.g = tk.DoubleVar(value=100)
         self.b = tk.DoubleVar(value=100)
+        
+    def update_hdf5(self):
+        updater = tk.Toplevel()
+        updater.title("Update HDF5 File")
+        updater.transient(root)
+        hdf5 = tk.Label(updater, text="Select new HDF5 file:")
+        hdf5.grid(row=0, column=0, padx=5, sticky="w")
+        
+        new_hdf5_path = tk.StringVar()
+        
+        folder_entry = tk.Entry(updater, textvariable = new_hdf5_path, width=50)
+        folder_entry.grid(row=1, column=0, padx=10, pady=10, sticky = "nsew")
+        
+        def select_folder():
+            """Selects folder where exported images should go.
+
+                Gets the image path from file explorer on click of the browse button.
+            """
+            path = filedialog.askopenfilename()
+            if path == "":
+                return
+            else:
+                new_hdf5_path.set(path + "/")
+                folder_entry.update()
+            
+        folder_button = tk.Button(updater, text = "Browse", command = select_folder)
+        folder_button.grid(row = 1, column = 1, padx = 10, pady = 10, sticky = "w")
+        
+        def confirm():
+            """Exports images to folder_path.
+
+            Takes case name and folder path and exports biondi images to the designated folder.
+            """
+            if new_hdf5_path.get() == "/":
+                return
+            else:
+                Database(parent_dir).update_hdf5(new_hdf5_path.get())
+                self.max_tiles = Database(parent_dir).get_num_tiles()
+                self.finished_bools = Database(parent_dir).get_tiles()
+                combo_values = [str(i) for i in range(1, self.max_tiles+1)]
+                self.goto.configure(values=combo_values)
+                self.goto.update()
+                updater.destroy()
+        
+        ok_button = tk.Button(updater, text = "Okay", command = confirm)
+        ok_button.grid(row = 3, column = 1, padx = 10, pady = 10, sticky = "e")
         
     def open_new_folder(self):
         global parent_dir
@@ -185,7 +234,6 @@ class Application(tk.Frame):
         self.canvas.bind('<MouseWheel>', self.verti_wheel)
         self.canvas.bind('<Shift-MouseWheel>', self.hori_wheel) 
         
-        
     def verti_wheel(self, event):
         if event.num == 5 or event.delta == -120:  # scroll down
             self.canvas.yview('scroll', 20, 'units')
@@ -201,8 +249,9 @@ class Application(tk.Frame):
     def create_navigator(self):
         self.navigator = tk.Frame(self.master)
         self.navigator.grid(row=3, column=1, columnspan=3)
+        combo_values = [str(i) for i in range(1, self.max_tiles+1)]
         
-        self.goto = ttk.Combobox(self.navigator, values=[str(i) for i in range(1,101)],
+        self.goto = ttk.Combobox(self.navigator, values=combo_values,
                                  font=("Calibri", 30), width=3, justify="center", 
                                  state="normal")
         self.goto.bind("<<ComboboxSelected>>", self._nav_goto)
@@ -239,7 +288,7 @@ class Application(tk.Frame):
         self.inf_frame._update_completed_label(self.var_fin.get())
         
     def _increment_tile(self, i):
-        if (self.cur_tile.get() >= constants.grids_h * constants.grids_w) & (i == 1):
+        if (self.cur_tile.get() >= self.max_tiles) & (i == 1):
             return
         elif (self.cur_tile.get() <= 0) & (i == -1):
             return
@@ -416,10 +465,10 @@ class InformationFrame(tk.Frame):
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.grid(row=4, column=0)
-        binds = constants.bindings
+        binds = constants.bindings.copy()
         binds["total"] = ""
         
-        colors = constants.marker_color
+        colors = constants.marker_color.copy()
         colors["total"] = "limegreen"
         i = 0
         labels = []
