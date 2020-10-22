@@ -195,15 +195,15 @@ class Database:
         df[["bi %", "mu %", "bimu %", "affected %"]] = (df[["bi", "mu", "bimu", "affected"]].div(df["total"], axis=0).multiply(100)).round(2)
         # add bimu % to bi % and mu %
         # fix later
-        df[["bi %", "mu %"]] = df[["bi %", "mu %"]].add(df["bimu"], axis=0)
+        df[["bi %", "mu %"]] = df[["bi %", "mu %"]].add(df["bimu %"], axis=0)
         # moving CE calc
         df["ce bi %"] = df["bi %"].rolling(window=10).std()
         df["ce mu %"] = df["mu %"].rolling(window=10).std()
         df["ce affected %"] = df["affected %"].rolling(window=10).std()
         # getting the 10 day std as a percentage of the current mean for each classification
-        df["ce bi %"] = df["ce bi %"].div(df["bi %"])
-        df["ce mu %"] = df["ce mu %"].div(df["mu %"])
-        df["ce affected %"] = df["ce affected %"].div(df["affected %"])
+        df["ce bi %"] = df["ce bi %"].div(df["bi %"]) * 100
+        df["ce mu %"] = df["ce mu %"].div(df["mu %"]) * 100
+        df["ce affected %"] = df["ce affected %"].div(df["affected %"]) * 100
         
         return df
     
@@ -268,6 +268,7 @@ class Database:
         ax5.set_title("Moving CE v Total Cells")
         ax5.set_ylabel("Moving CE Percentage")
         ax5.set_xlabel("Total Cells Evaluated")
+        ax5.set(ylim=(0, 25))
         
         lines, labels = fig.axes[-1].get_legend_handles_labels()
         fig.legend(lines, labels, loc="upper center", bbox_to_anchor=(.5, .74), ncol=3)
