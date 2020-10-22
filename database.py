@@ -242,8 +242,8 @@ class Database:
             pie_sizes = (0,0,0,0)
         fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
         
-        ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=["bi", "bi & mu", "mu", "un"], autopct="%1.1f%%",
-                startangle=90, radius=2.0)
+        ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=[f"bi {pie_sizes[0]}", f"bi & mu {pie_sizes[1]}", f"mu {pie_sizes[2]}", f"un {pie_sizes[3]}"], autopct="%1.1f%%",
+                startangle=90, radius=1)
         ax1.set_title("Annotation Breakdown", y=1.7)
         
         ax2.plot(total, df["bi %"], label="Bi")
