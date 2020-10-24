@@ -495,11 +495,11 @@ class InformationFrame(tk.Frame):
     def _update_completed_label(self, finished):
         # finished to check when the user checks/unchecks the finished box
         if finished:
-            self.completed, total_annotated, num_passed_tiles = Database(parent_dir).check_completed()
+            self.completed, total_annotated = Database(parent_dir).check_completed()
             # self.completed = True
             
             if self.completed:
-                completed_text = f"COMPLETED - EXPORT IMMEDIATELY\n{total_annotated} CELLS ANNOTATED\n{num_passed_tiles} TILES MATCHING CRITERA"
+                completed_text = f"COMPLETED - EXPORT IMMEDIATELY\n{total_annotated} CELLS ANNOTATED"
                 self.completed_label.config(text=completed_text)
                 self.completed_label.grid(row=0, column=0, columnspan=2, sticky='nsew')
             else:

@@ -211,7 +211,7 @@ class Database:
         df = self.all_annotations_df()
         total_annotated = df.values.sum()
         df =self.format_df(df)
-        
+        df = df.iloc[-10:, :]
         # reopen connection as it was previously closed
         self.conn = sqlite3.connect(self.database_path)
         self.c = self.conn.cursor()
@@ -223,13 +223,14 @@ class Database:
         
         # 10 recent in a row
         num_passed_tiles = len(df[(df["bi %"] > i) & (df["mu %"] > i) & (df["affected %"] > i) & (df["finished"] == 1) & (df["ce bi %"] < j) & (df["ce mu %"] < j) & (df["ce affected %"] < j)])
+        print(df[(df["bi %"] > i) & (df["mu %"] > i) & (df["affected %"] > i) & (df["finished"] == 1) & (df["ce bi %"] < j) & (df["ce mu %"] < j) & (df["ce affected %"] < j)])
         if total_annotated >= constants.max_annotations:
             completed = True
-        elif num_passed_tiles >= constants.passed_tiles_req:
+        elif num_passed_tiles == constants.passed_tiles_req:
             completed = True
         else:
             completed = False
-        return completed, total_annotated, num_passed_tiles
+        return completed, total_annotated
     
     def create_graphs(self):
         matplotlib.use("Agg")
