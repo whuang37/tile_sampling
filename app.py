@@ -58,6 +58,10 @@ class Application(tk.Frame):
         
         self.create_optionbar()
         
+        self.r = tk.DoubleVar(value=100)
+        self.g = tk.DoubleVar(value=100)
+        self.b = tk.DoubleVar(value=100)
+        
     def create_optionbar(self):
         self.option_bar = tk.Frame(self.master)
         self.option_bar.grid(row=0, column=1, columnspan=3, sticky='we')
@@ -82,9 +86,6 @@ class Application(tk.Frame):
         # view_menu.add_command(label = "Set Window to Original Size", command = self.original_size)
         
         # variables for color calibration
-        self.r = tk.DoubleVar(value=100)
-        self.g = tk.DoubleVar(value=100)
-        self.b = tk.DoubleVar(value=100)
         
     def update_hdf5(self):
         updater = tk.Toplevel()
@@ -271,7 +272,8 @@ class Application(tk.Frame):
         
     def _nav_goto(self, event):
         self.cur_tile.set(int(self.goto.get()) - 1)
-        self._update_image()
+        channels = (self.r.get() / 100, self.g.get() / 100, self.b.get() / 100)
+        self._update_image(channels)
     
     def create_finished(self):
         self.var_fin = tk.IntVar()
@@ -294,7 +296,8 @@ class Application(tk.Frame):
             return
         else: 
             self.cur_tile.set(self.cur_tile.get() + i)
-            self._update_image()
+            channels = (self.r.get() / 100, self.g.get() / 100, self.b.get() / 100)
+            self._update_image(channels)
             self.goto.set(str(self.cur_tile.get() + 1))
             self.inf_frame._update_tile_info(self.cur_tile.get())
         
