@@ -211,7 +211,7 @@ class Database:
         df = self.all_annotations_df()
         total_annotated = df.values.sum()
         df =self.format_df(df)
-        df = df.iloc[-10:, :]
+        df = df.iloc[-constants.passed_tiles_req:, :]
         # reopen connection as it was previously closed
         self.conn = sqlite3.connect(self.database_path)
         self.c = self.conn.cursor()
@@ -221,9 +221,22 @@ class Database:
         i = constants.min_perc
         j = constants.max_ce
         
+        bi = df["bi %"].iloc[-1]
+        mu = df["mu %"].iloc[-1]
+        
+        if (bi > i) & (mu > i):
+            num_passed_tiles = len(df[(df["finished"] == 1) & (df["ce bi %"] < j) & (df["ce mu %"] < j)])
+            
+        elif (bi > i) & (mu <= i):
+            num_passed_tiles = len(df[(df["finished"] == 1) & (df["ce bi %"] < j)])
+        elif (mu > i) & (bi <= i):
+            num_passed_tiles = len(df[(df["finished"] == 1) & (df["ce mu %"] < j)])
+        else:
+            num_passed_tiles = 0
+        
+        print(df)
         # 10 recent in a row
-        num_passed_tiles = len(df[(df["bi %"] > i) & (df["mu %"] > i) & (df["affected %"] > i) & (df["finished"] == 1) & (df["ce bi %"] < j) & (df["ce mu %"] < j) & (df["ce affected %"] < j)])
-        print(df[(df["bi %"] > i) & (df["mu %"] > i) & (df["affected %"] > i) & (df["finished"] == 1) & (df["ce bi %"] < j) & (df["ce mu %"] < j) & (df["ce affected %"] < j)])
+        
         if total_annotated >= constants.max_annotations:
             completed = True
         elif num_passed_tiles == constants.passed_tiles_req:
