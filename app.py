@@ -39,6 +39,7 @@ class Application(tk.Frame):
         first_unfinished = next((i for i, j in enumerate(bools) if j == False), 0)
         
         self.max_tiles = Database(parent_dir).get_num_tiles()
+        self.set_case_type()
         
         self.cur_tile = tk.IntVar()
         self.cur_tile.set(self.finished_bools[first_unfinished][0])
@@ -61,6 +62,25 @@ class Application(tk.Frame):
         self.r = tk.DoubleVar(value=100)
         self.g = tk.DoubleVar(value=100)
         self.b = tk.DoubleVar(value=100)
+        
+        
+    def set_case_type(self):
+        self.case_type = Database(parent_dir).get_type()
+        
+        if self.case_type == "biondi":
+            self.ann_keys = constants.bi_keys
+        else:
+            self.ann_keys = constants.vac_keys
+            
+        self.bindings =  {self.ann_keys[0]: "q", 
+                          self.ann_keys[1]: "w", 
+                          self.ann_keys[2]: "e", 
+                          self.ann_keys[3]: "r"}
+        
+        self.marker_color = {self.ann_keys[0]: "firebrick3", 
+                             self.ann_keys[1]: "cyan", 
+                             self.ann_keys[2]: "yellow", 
+                             self.ann_keys[3]: "light salmon"}
         
     def create_optionbar(self):
         self.option_bar = tk.Frame(self.master)
@@ -144,9 +164,6 @@ class Application(tk.Frame):
         else:
             parent_dir = previous_dir
             
-    def export_images(self):
-        pass
-    
     def calibrate_colors(self):
         colors = tk.Toplevel()
         colors.transient(root)
@@ -353,7 +370,7 @@ class Application(tk.Frame):
         return Image.merge("RGB", (r, g, b))
     
     def _create_binds(self):
-        for key, binding in constants.bindings.items():
+        for key, binding in self.bindings.items():
             self.canvas.bind(binding, lambda event, m_type = key: self._markers(event, m_type))
         
     def _markers(self, event, m_type):
@@ -365,6 +382,7 @@ class Application(tk.Frame):
             return
         x = self.canvas.canvasx(event.x)
         y = self.canvas.canvasy(event.y)
+        
         self.create_marker(m_type, self.cur_tile.get(), x, y)
         
         Database(parent_dir).add_value(m_type, self.cur_tile.get(), x, y)
@@ -383,7 +401,7 @@ class Application(tk.Frame):
         elif (y < 0) | (y > self.img_height):
             return
         
-        color = constants.marker_color[m_type]
+        color = self.marker_color[m_type]
         
         tag = f"{tile_id}_{x}_{y}"
         
@@ -452,6 +470,7 @@ class InformationFrame(tk.Frame):
         tk.Frame.__init__(self)
         self.master = master
         self.cur_tile = cur_tile
+        self.set_case_type()
         self.create_tile_info()
         self.create_graph_canvas()
         
@@ -465,13 +484,32 @@ class InformationFrame(tk.Frame):
         self.completed_label = tk.Label(self, bg="red", font="Calibri 18", height=3)
         self._update_completed_label(True)
         
+        
+    def set_case_type(self):
+        self.case_type = Database(parent_dir).get_type()
+        
+        if self.case_type == "biondi":
+            self.ann_keys = constants.bi_keys
+        else:
+            self.ann_keys = constants.vac_keys
+            
+        self.bindings =  {self.ann_keys[0]: "q", 
+                          self.ann_keys[1]: "w", 
+                          self.ann_keys[2]: "e", 
+                          self.ann_keys[3]: "r"}
+        
+        self.marker_color = {self.ann_keys[0]: "firebrick3", 
+                             self.ann_keys[1]: "cyan", 
+                             self.ann_keys[2]: "yellow", 
+                             self.ann_keys[3]: "light salmon"}
+        
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.grid(row=4, column=0)
-        binds = constants.bindings.copy()
+        binds = self.bindings.copy()
         binds["total"] = ""
         
-        colors = constants.marker_color.copy()
+        colors = self.marker_color.copy()
         colors["total"] = "limegreen"
         i = 0
         labels = []
@@ -573,7 +611,11 @@ class OpeningWindow:
         
         self.initiate_folder_button = tk.Button(self.button_frame, text = "Initiate Folder", command = self.initiate_folder)
         self.initiate_folder_button.pack(side = "left", padx = 2 , pady = 2)
-    
+
+        self.case_type = tk.StringVar()
+        self.case_type.set("biondi")
+        
+        
     def open_image(self):
         """Opens initial Application and destroys initial window assess
 
@@ -597,7 +639,7 @@ class OpeningWindow:
             parent_dir = path
             i = Application(root)
 
-    def confirm_function(self, folder_path, file_path, nf):
+    def confirm_function(self, folder_path, file_path, nf, case_type):
         """Initializes a new folder and creates a success label
 
         Calls FileManagement to initate a folder with a grid image file 
@@ -616,7 +658,7 @@ class OpeningWindow:
         global parent_dir
         parent_dir = folder_path
         
-        Database(parent_dir).initiate(file_path)
+        Database(parent_dir).initiate(file_path, case_type)
         done_screen = tk.Toplevel()
 
         success_label1 = tk.Label(done_screen, text = "Folder sucessfully initialized!")
@@ -655,7 +697,12 @@ class OpeningWindow:
         file_button = tk.Button(nf, text = "Browse...", command = lambda: file_name.set(filedialog.askopenfilename()))
         file_button.grid(row = 4, column = 1)
 
-        confirm_button = tk.Button(nf, text = "Confirm", command = lambda: self.confirm_function(folder_path.get(), file_name.get(), nf))
+        case_type = tk.StringVar()
+        case_type.set("biondi")
+        case_type_dropdown = tk.OptionMenu(nf, case_type, "biondi", "vacuole")
+        case_type_dropdown.grid(row = 8, column = 0)
+        
+        confirm_button = tk.Button(nf, text = "Confirm", command = lambda: self.confirm_function(folder_path.get(), file_name.get(), nf, case_type.get()))
         confirm_button.grid(row = 8, column = 1)
 
         folder_label = tk.Label(nf, text = "Enter an empty folder directory:")
