@@ -228,6 +228,7 @@ class Database:
         df[self.ann_keys] = df[self.ann_keys].cumsum(axis=0)
         df["affected"] = df[[self.ann_keys[1], self.ann_keys[2], self.ann_keys[3]]].sum(axis=1)
         df["total"] = df [self.ann_keys].sum(axis=1) # total number with unaffected as a cumulative sum series
+        
         df[[f"{self.ann_keys[1]} %", 
             f"{self.ann_keys[2]} %", 
             f"{self.ann_keys[3]} %", 
@@ -250,6 +251,9 @@ class Database:
         df[f"ce {self.ann_keys[2]} %"] = df[f"ce {self.ann_keys[2]} %"].div(df[f"{self.ann_keys[2]} %"]) * 100
         df["ce affected %"] = df["ce affected %"].div(df["affected %"]) * 100
         
+        if self.case_type == "vacuole":
+            df[f"ce {self.ann_keys[3]} %"] = df[f"{self.ann_keys[3]} %"].rolling(window=10).std()
+            df[f"ce {self.ann_keys[3]} %"] = df[f"ce {self.ann_keys[3]} %"].div(df[f"{self.ann_keys[3]} %"]) * 100
         return df
     
     def check_completed(self):
@@ -259,34 +263,73 @@ class Database:
         df = self.all_annotations_df()
         total_annotated = df.values.sum()
         df =self.format_df(df)
+        
+        # get the last x amount of tiles
         df = df.iloc[-constants.passed_tiles_req:, :]
         # reopen connection as it was previously closed
         self.conn = sqlite3.connect(self.database_path)
         self.c = self.conn.cursor()
         finished_tiles = self.get_tiles()
+        # gets the list of finished tiles
+        # selects by existing indices in df
         df["finished"] =  [finished_tiles[x][1] for x in df.index.tolist()]
         
-        i = constants.min_perc
-        j = constants.max_ce
-        try:
-            bi = df[f"{self.ann_keys[1]} %"].iloc[-1]
-            mu = df[f"{self.ann_keys[2]} %"].iloc[-1]
-        except:
-            bi = 0
-            mu = 0
-            
-            
-        if (bi > i) & (mu > i):
-            num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j) & (df[f"ce {self.ann_keys[1]} %"] < j)])
-        elif (bi > i) & (mu <= i):
-            num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j)])
-        elif (mu > i) & (bi <= i):
-            num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[2]} %"] < j)])
-        else:
-            num_passed_tiles = 0
+        # i = constants.min_perc
+        # j = constants.max_ce
+        # try:
+        #     bi = df[f"{self.ann_keys[1]} %"].iloc[-1]
+        #     mu = df[f"{self.ann_keys[2]} %"].iloc[-1]
+        # except:
+        #     bi = 0
+        #     mu = 0
         
-        print(df)
+        # lv = 0 # for extra large vacuole case
+        # if self.case_type == "vacuole":
+        #     try:
+        #         lv = df[f"{self.ann_keys[3]} %"].iloc[-1]
+        #     except:
+        #         lv = 0
+        
+        bool_query = (df["finished"] == 1)
+        if self.case_type == "biondi":
+            num_body_type = 2
+        else:
+            num_body_type = 3
+
+        for body_type in [self.ann_keys[i] for i in range(1, num_body_type)]:
+            try:
+                perc = df[f"{body_type} %"].iloc[-1]
+            except:
+                perc = 0
+                
+            if (perc > constants.min_perc):
+                bool_query = (bool_query & (df[f"ce {body_type} %"] < constants.max_ce))
+        
+        num_passed_tiles = len(df[bool_query]) # query the dataframe for passed tiles
+        
+        # if self.case_type == "biondi":
+        #     if (bi > i) & (mu > i):
+        #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j) & (df[f"ce {self.ann_keys[2]} %"] < j)])
+        #     elif (bi > i) & (mu <= i):
+        #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j)])
+        #     elif (mu > i) & (bi <= i):
+        #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[2]} %"] < j)])
+        #     else:
+        #         num_passed_tiles = 0
+        # else:
+        #     if (bi > i) & (mu > i) & (lv > i):
+        #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j) & (df[f"ce {self.ann_keys[2]} %"] < j) & (df[f"ce {self.ann_keys[3]} %"] < j)])
+        #     elif (bi > i) & (mu > i) & (lv <= i):
+        #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j) & (df[f"ce {self.ann_keys[2]} %"] < j)])
+        #     elif (bi > i) & (mu <= i) & (lv <= i):
+        #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j)])
+        #     elif (mu > i) & (bi <= i) & (lv <= i):
+        #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[2]} %"] < j)])
+        #     else:
+        #         num_passed_tiles = 0
+        
         # 10 recent in a row
+        print(df)
         
         if total_annotated >= constants.max_annotations:
             completed = True
@@ -308,41 +351,79 @@ class Database:
             pie_sizes = df.iloc[-1, 0:4]
         except:
             pie_sizes = (0,0,0,0)
-        fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
+        # if self.case_type == "biondi":
+        #     fig, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(5, figsize=(4,15))
+        # else:
+        #     fig, (ax1,ax2,ax3,ax4,ax5, ax6) = plt.subplots(6, figsize=(4,15))
         
-        ax1.pie(pie_sizes, explode=(0, 0, 0, .1), labels=[f"{self.ann_keys[1]} {pie_sizes[0]}", 
+        if self.case_type == "biondi":
+            fig_subplots = 5
+        else:
+            fig_subplots = 6
+
+        fig = plt.figure(figsize = (4, 15))
+        
+        
+        num_plots = 0
+        fig.add_subplot(fig_subplots, 1, 1+num_plots)
+        pie_chart_colors = ["#1f77b4", "purple", "orange", "red"]
+        fig.axes[num_plots].pie(pie_sizes, explode=(0, 0, 0, .1), labels=[f"{self.ann_keys[1]} {pie_sizes[0]}", 
                                                           f"{self.ann_keys[3]} {pie_sizes[1]}", 
                                                           f"{self.ann_keys[2]} {pie_sizes[2]}", 
                                                           f"{self.ann_keys[0]} {pie_sizes[3]}"], autopct="%1.1f%%",
-                startangle=90, radius=1)
-        ax1.set_title("Annotation Breakdown", y=1.7)
+                startangle=90, radius=1, colors=pie_chart_colors)
+        fig.axes[num_plots].set_title("Annotation Breakdown", y=1.7)
         
-        ax2.plot(total, df[f"{self.ann_keys[1]} %"], label=self.ann_keys[1])
-        ax2.set_title(f"{self.ann_keys[1]} v Total Cells")
-        ax2.set_ylabel(f"Percent {self.ann_keys[1]}")
-        ax2.set_xlabel("Total Cells Evaluated")
+        num_plots += 1
+        fig.add_subplot(fig_subplots, 1 , 1+num_plots)
+        fig.axes[num_plots].plot(total, df[f"{self.ann_keys[1]} %"], label=self.ann_keys[1])
+        fig.axes[num_plots].set_title(f"{self.ann_keys[1]} v Total Cells")
+        fig.axes[num_plots].set_ylabel(f"Percent {self.ann_keys[1]}")
+        fig.axes[num_plots].set_xlabel("Total Cells Evaluated")
         
-        ax3.plot(total, df[f"{self.ann_keys[2]} %"], label=self.ann_keys[1], color="orange")
-        ax3.set_title(f"{self.ann_keys[2]} v Total Cells")
-        ax3.set_ylabel(f"Percent {self.ann_keys[2]}")
-        ax3.set_xlabel("Total Cells Evaluated")
+        num_plots += 1
+        fig.add_subplot(fig_subplots, 1 , 1+num_plots)
+        fig.axes[num_plots].plot(total, df[f"{self.ann_keys[2]} %"], label=self.ann_keys[2], color="orange")
+        fig.axes[num_plots].set_title(f"{self.ann_keys[2]} v Total Cells")
+        fig.axes[num_plots].set_ylabel(f"Percent {self.ann_keys[2]}")
+        fig.axes[num_plots].set_xlabel("Total Cells Evaluated")
         
-        ax4.plot(total, df["affected %"], label="total affected", color="green")
-        ax4.set_title("Total Affected v Total Cells")
-        ax4.set_ylabel("Percent Affected")
-        ax4.set_xlabel("Total Cells Evaluated")
+        if self.case_type == "vacuole":
+            num_plots += 1
+            fig.add_subplot(fig_subplots, 1 , 1+num_plots)
+            fig.axes[num_plots].plot(total, df[f"{self.ann_keys[3]} %"], label=self.ann_keys[3], color="purple")
+            fig.axes[num_plots].set_title(f"{self.ann_keys[3]} v Total Cells")
+            fig.axes[num_plots].set_ylabel(f"Percent {self.ann_keys[3]}")
+            fig.axes[num_plots].set_xlabel("Total Cells Evaluated")
         
-        ax5.plot(total, df[f"ce {self.ann_keys[1]} %"], label=self.ann_keys[1])
-        ax5.plot(total, df[f"ce {self.ann_keys[2]} %"], label=self.ann_keys[2], color="orange")
-        ax5.plot(total, df["ce affected %"], label="total affected", color="green")
-        ax5.axhline(5, color="grey", alpha=.5, dashes=(1,1))
-        ax5.set_title("Moving CE v Total Cells")
-        ax5.set_ylabel("Moving CE Percentage")
-        ax5.set_xlabel("Total Cells Evaluated")
-        ax5.set(ylim=(0, 25))
+        num_plots += 1
+        fig.add_subplot(fig_subplots, 1 , 1+num_plots)
+        fig.axes[num_plots].plot(total, df["affected %"], label="total affected", color="green")
+        fig.axes[num_plots].set_title("Total Affected v Total Cells")
+        fig.axes[num_plots].set_ylabel("Percent Affected")
+        fig.axes[num_plots].set_xlabel("Total Cells Evaluated")
+        
+        num_plots += 1
+        fig.add_subplot(fig_subplots, 1 , 1+num_plots)
+        fig.axes[num_plots].plot(total, df[f"ce {self.ann_keys[1]} %"], label=self.ann_keys[1])
+        fig.axes[num_plots].plot(total, df[f"ce {self.ann_keys[2]} %"], label=self.ann_keys[2], color="orange")
+        
+        if self.case_type == "vacuole":
+            fig.axes[num_plots].plot(total, df[f"ce {self.ann_keys[3]} %"], label=self.ann_keys[3], color="purple")
+            
+        fig.axes[num_plots].plot(total, df["ce affected %"], label="total affected", color="green")
+        fig.axes[num_plots].axhline(5, color="grey", alpha=.5, dashes=(1,1))
+        fig.axes[num_plots].set_title("Moving CE v Total Cells")
+        fig.axes[num_plots].set_ylabel("Moving CE Percentage")
+        fig.axes[num_plots].set_xlabel("Total Cells Evaluated")
+        fig.axes[num_plots].set(ylim=(0, 25))
         
         lines, labels = fig.axes[-1].get_legend_handles_labels()
-        fig.legend(lines, labels, loc="upper center", bbox_to_anchor=(.5, .74), ncol=3)
+        # if self.case_type == "biondi":
+            # fig.legend(lines, labels, loc="upper center", bbox_to_anchor=(.5, .74), ncol=3)
+        # else:
+            # fig.legend(lines, labels, loc="upper center", bbox_to_anchor=(.5, .95), ncol=3)
+        fig.legend(lines, labels, loc="upper center", bbox_to_anchor=(.5, .95), ncol=3)
         fig.tight_layout()
         canvas = plt.get_current_fig_manager().canvas
         canvas.draw()
