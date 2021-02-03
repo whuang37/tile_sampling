@@ -184,7 +184,7 @@ class Database:
         return result
     
     def all_annotations_df(self):
-        self.get_type()
+        self.set_case_type()
         self.__init__(self.parent_dir) # reopens the connection
         
         df = pd.read_sql_query('''SELECT TILE_ID, TYPE, count(TYPE) from annotations GROUP BY TILE_ID, TYPE''', self.conn)
@@ -270,6 +270,11 @@ class Database:
         self.conn = sqlite3.connect(self.database_path)
         self.c = self.conn.cursor()
         finished_tiles = self.get_tiles()
+        
+        if len(finished_tiles) < constants.min_finished_tiles:
+            # must have atleast 20 tiles done first
+            return False, total_annotated
+
         # gets the list of finished tiles
         # selects by existing indices in df
         df["finished"] =  [finished_tiles[x][1] for x in df.index.tolist()]
@@ -296,6 +301,7 @@ class Database:
         else:
             num_body_type = 3
 
+        valid_tiles = False
         for body_type in [self.ann_keys[i] for i in range(1, num_body_type)]:
             try:
                 perc = df[f"{body_type} %"].iloc[-1]
@@ -303,10 +309,13 @@ class Database:
                 perc = 0
                 
             if (perc > constants.min_perc):
+                valid_tiles = True # boolean check if atleast one type of body has surpassed min perc
                 bool_query = (bool_query & (df[f"ce {body_type} %"] < constants.max_ce))
         
-        num_passed_tiles = len(df[bool_query]) # query the dataframe for passed tiles
-        
+        if valid_tiles:
+            num_passed_tiles = len(df[bool_query]) # query the dataframe for passed tiles
+        else:
+            num_passed_tiles = 0
         # if self.case_type == "biondi":
         #     if (bi > i) & (mu > i):
         #         num_passed_tiles = len(df[(df["finished"] == 1) & (df[f"ce {self.ann_keys[1]} %"] < j) & (df[f"ce {self.ann_keys[2]} %"] < j)])

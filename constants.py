@@ -10,7 +10,7 @@ vac_keys = ["un", "vac", "mv", "lv"]
 # marker_color = {keys[0]: "firebrick3", keys[1]: "cyan", keys[2]: "yellow", keys[3]: "light salmon"}
 
 # completion values
-
+min_finished_tiles = 20
 max_annotations = 3500
 min_perc = 2
 max_ce = 5
