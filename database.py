@@ -72,7 +72,7 @@ class Database:
         if self.case_type == "biondi":
             self.ann_keys = constants.bi_keys
         else:
-            self.ann_keys = constants.vac_keys
+            self.ann_keys = constants.vac_ann_keys
     
     def get_type(self):
         
@@ -192,9 +192,14 @@ class Database:
         df = df.pivot(index = "TILE_ID", columns = "TYPE", values = "count(TYPE)")
         df = df.fillna(value=0)
         
+        if self.case_type == "biondi":
+            ann_keys = self.ann_keys
+        else:
+            ann_keys = constants.vac_keys
         for key in self.ann_keys:
             if key not in df.columns:
                 df[key] = 0
+
         return df
     
     def tile_annotation_values(self, tile_id):
@@ -211,7 +216,12 @@ class Database:
         for value in result:
             values_dict[value[0]] = value[1]
         
-        for key in self.ann_keys:
+        if self.case_type == "biondi":
+            ann_keys = self.ann_keys
+        else:
+            ann_keys = constants.vac_keys
+            
+        for key in ann_keys:
             if key not in values_dict:
                 values_dict[key] = 0
         total = 0
@@ -224,6 +234,10 @@ class Database:
     def format_df(self, df):
         self.set_case_type()
         self.__init__(self.parent_dir) # reopens the connection
+        print(df)
+        if self.case_type != "biondi":
+            ann_keys = constants.vac_keys
+            df[self.ann_keys[3]] = df[[ann_keys[3], ann_keys[4]]].sum(axis=1) 
         
         df[self.ann_keys] = df[self.ann_keys].cumsum(axis=0)
         df["affected"] = df[[self.ann_keys[1], self.ann_keys[2], self.ann_keys[3]]].sum(axis=1)
@@ -295,11 +309,12 @@ class Database:
         #     except:
         #         lv = 0
         
+        # changed num_body_type
         bool_query = (df["finished"] == 1)
         if self.case_type == "biondi":
-            num_body_type = 2
-        else:
             num_body_type = 3
+        else:
+            num_body_type = 4
 
         valid_tiles = False
         for body_type in [self.ann_keys[i] for i in range(1, num_body_type)]:

@@ -63,7 +63,6 @@ class Application(tk.Frame):
         self.g = tk.DoubleVar(value=100)
         self.b = tk.DoubleVar(value=100)
         
-        
     def set_case_type(self):
         self.case_type = Database(parent_dir).get_type()
         
@@ -81,6 +80,10 @@ class Application(tk.Frame):
                              self.ann_keys[1]: "cyan", 
                              self.ann_keys[2]: "yellow", 
                              self.ann_keys[3]: "light salmon"}
+        
+        if self.case_type != "biondi":
+            self.bindings[self.ann_keys[4]] = "t"
+            self.marker_color[self.ann_keys[4]] = 'seagreen1'
         
     def create_optionbar(self):
         self.option_bar = tk.Frame(self.master)
@@ -330,14 +333,17 @@ class Application(tk.Frame):
         except:
             pass
         self.create_image_canvas()
-        gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
+        # gr_img = GridImages(self.canvas, self.zoomed_canvas, self.cur_img)
+        self.update_zoom()
         self.initiate_markers()
         self.create_scrollbar()
         self._create_binds()
         
         self.cur_img = self.format_image((1, 1, 1))
         self.img_width, self.img_height = self.cur_img.size
-        
+        if self.case_type != "biondi":
+            self.create_zoomed_circle()
+            self.zoomed_canvas.bind("<Configure>", self.update_zoomed_circle)
         self.finished.destroy()
         self.create_finished()
         
@@ -347,7 +353,20 @@ class Application(tk.Frame):
         self.zoomed_canvas = tk.Canvas(self.master, highlightthickness=0, bg="black")
         self.zoomed_canvas.grid(row=1, column=3, sticky="nswe")
         self.canvas.focus_set()
+        self.canvas.config(cursor="none")
     
+    def create_zoomed_circle(self):
+        big_r = constants.zoomed_large_circle_r
+        small_r = constants.zoomed_small_circle_r
+        x = self.zoomed_canvas.winfo_width() / 2
+        y = self.zoomed_canvas.winfo_height() / 2
+        self.zoomed_canvas.create_oval(x-big_r, y-big_r, x+big_r, y+big_r, outline=constants.cursor_color, stipple="gray25", tag="vacuole_circle")
+        self.zoomed_canvas.create_oval(x-small_r, y-small_r, x+small_r, y+small_r, outline=constants.cursor_color, stipple="gray25", tag="vacuole_circle")
+    
+    def update_zoomed_circle(self, event):
+        self.zoomed_canvas.delete("vacuole_circle")
+        self.create_zoomed_circle()
+        
     def format_image(self, *colors): # opening and changing color channels of the picture
         array_path = os.path.join(parent_dir, "tile_array.hdf5")
         
@@ -372,7 +391,37 @@ class Application(tk.Frame):
     def _create_binds(self):
         for key, binding in self.bindings.items():
             self.canvas.bind(binding, lambda event, m_type = key: self._markers(event, m_type))
+            
+        self.canvas.bind("<Enter>", self._on_canvas_enter)
+        self.canvas.bind("<Leave>", self._on_canvas_exit)
+        self.canvas.bind("<Motion>", self._mouse_motion)
         
+    def _on_canvas_enter(self, event):
+        x = self.canvas.canvasx(event.x)
+        y = self.canvas.canvasy(event.y)
+        big_r = constants.large_circle_r
+        small_r = constants.small_circle_r
+        
+        self.canvas.create_oval(x-big_r, y-big_r, x+big_r, y+big_r, outline=constants.cursor_color, stipple="gray25", tag="vacuole_circle")
+        self.canvas.create_oval(x-small_r, y-small_r, x+small_r, y+small_r, outline=constants.cursor_color, stipple="gray25", tag="vacuole_circle")
+        
+    def _on_canvas_exit(self, event):
+        self.canvas.delete("vacuole_circle")
+    
+    def _mouse_motion(self, event):
+        x = self.canvas.canvasx(event.x)
+        y = self.canvas.canvasy(event.y)
+        self._vacuole_circle_move(x, y)
+        self._hover_zoom(x, y)
+
+    def _vacuole_circle_move(self, x, y):
+        big_r = constants.large_circle_r
+        small_r = constants.small_circle_r
+        self.canvas.delete("vacuole_circle")
+        
+        self.canvas.create_oval(x-big_r, y-big_r, x+big_r, y+big_r, outline=constants.cursor_color, stipple="gray25", tag="vacuole_circle")
+        self.canvas.create_oval(x-small_r, y-small_r, x+small_r, y+small_r, outline=constants.cursor_color, stipple="gray25", tag="vacuole_circle")
+
     def _markers(self, event, m_type):
         if self.var_fin.get() == 1: # if the grid is marked as finished
             return
@@ -425,39 +474,30 @@ class Application(tk.Frame):
         self.canvas.delete(tag)
         Database(parent_dir).delete_value(tile, x, y)
         self.inf_frame._update_tile_info(self.cur_tile.get())
-class GridImages:
-    def __init__(self, unzoomed, zoomed, img):
-        self.unzoomed = unzoomed # canvas for unzoomed image
-        self.zoomed = zoomed # canvas for zoomed image
-        self.img = img
         
-        w, h = self.img.size
+    def update_zoom(self):
+        w, h = self.cur_img.size
         factor = constants.zooming_factor
-        self.zoomed_img = img.resize((int(w * factor), int (h * factor)), Image.ANTIALIAS)
+        self.zoomed_img = self.cur_img.resize((int(w * factor), int (h * factor)), Image.ANTIALIAS)
         
-        self.show_img(self.img, self.unzoomed)
-        self.show_img(self.zoomed_img, self.zoomed)
+        self.show_img(self.cur_img, self.canvas)
+        self.show_img(self.zoomed_img, self.zoomed_canvas)
         
-        # self.unzoomed.bind("<Button-1>", self._move_from)
-        self.unzoomed.bind("<Motion>", self._hover_zoom)
-        
-    def _hover_zoom(self, event):
-        self.w, self.h = self.zoomed.winfo_width(), self.zoomed.winfo_height()
-        x = self.unzoomed.canvasx(event.x) # converts the x coord from relative to frame to relative to canvas
+    def _hover_zoom(self, x, y):
+        self.w, self.h = self.canvas.winfo_width(), self.canvas.winfo_height()
         x = -x * constants.zooming_factor + self.w / 2 - constants.tuning_factor 
         if x < -self.zoomed_img.width + self.w: # bounding coords including a margin
             x = -self.zoomed_img.width + self.w
         if x > 0:
             x = 0
         
-        y = self.unzoomed.canvasy(event.y) # converts the x coord from relative to frame to relative to canvas
         y = -y * constants.zooming_factor + self.h / 2 - constants.tuning_factor 
         if y < -self.zoomed_img.height + self.h: # bounding coords including a margin
             y = -self.zoomed_img.height + self.h
         if y > 0:
             y = 0
             
-        self.zoomed.moveto("image", x=str(x), y=str(y)) # very under documented function11
+        self.zoomed_canvas.moveto("image", x=str(x), y=str(y)) # very under documented function11
         
     def show_img(self, img, canvas):
         imagetk = ImageTk.PhotoImage(img)
@@ -503,6 +543,10 @@ class InformationFrame(tk.Frame):
                              self.ann_keys[2]: "yellow", 
                              self.ann_keys[3]: "light salmon"}
         
+        if self.case_type != "biondi":
+            self.bindings[self.ann_keys[4]] = "t"
+            self.marker_color[self.ann_keys[4]] = 'seagreen1'
+        
     def create_tile_info(self):
         self.tile_info = tk.Frame(self)
         self.tile_info.grid(row=4, column=0)
@@ -514,16 +558,15 @@ class InformationFrame(tk.Frame):
         i = 0
         labels = []
         for key, color in colors.items():
-            labels.append(tk.Label(self.tile_info, text=f"{binds[key]}\n{key}", bg=color, font=("Calibri, 10"), width=9))
+            labels.append(tk.Label(self.tile_info, text=f"{binds[key]}\n{key}", bg=color, font=("Calibri, 10"), width=7))
             labels[i].grid(row=3, column=i, sticky='we')
             i += 1
         
         values = Database(parent_dir).tile_annotation_values(self.cur_tile)
-        
         self.ann_counts = {}
         i = 0
         for key, color in colors.items():
-            self.ann_counts[key] = tk.Label(self.tile_info, text=f"{values[key]}", bg=color, font=("Calibri, 10"), width=9)
+            self.ann_counts[key] = tk.Label(self.tile_info, text=f"{values[key]}", bg=color, font=("Calibri, 10"), width=7)
             self.ann_counts[key].grid(row=4, column=i, sticky="we")
             i += 1
         
