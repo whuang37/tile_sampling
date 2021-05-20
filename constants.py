@@ -17,8 +17,8 @@ min_perc = 2
 max_ce = 5
 passed_tiles_req = 10
 
-small_circle_r = 3
-large_circle_r = 11
-zoomed_small_circle_r = 12
-zoomed_large_circle_r = 51
+small_circle_r = 5
+large_circle_r = 9
+zoomed_small_circle_r = 23
+zoomed_large_circle_r = 45
 cursor_color = "red"
