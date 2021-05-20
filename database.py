@@ -20,14 +20,10 @@ class Database:
             print("Error while connecting to sqlite", error)
             self.conn.close()
             self.c.close()
-    
-    def __del__(self):
-        self.close()
 
     def close(self):
         self.conn.commit()
         self.c.close()
-        self.conn.close()
     
     def initiate(self, array_path, case_type):
         create_table_query = '''CREATE TABLE IF NOT EXISTS annotations (TYPE TEXT NOT NULL,
@@ -199,7 +195,7 @@ class Database:
             ann_keys = self.ann_keys
         else:
             ann_keys = constants.vac_keys
-        for key in ann_keys:
+        for key in self.ann_keys:
             if key not in df.columns:
                 df[key] = 0
 
@@ -237,6 +233,7 @@ class Database:
     def format_df(self, df):
         self.set_case_type()
         self.__init__(self.parent_dir) # reopens the connection
+        print(df)
         if self.case_type != "biondi":
             ann_keys = constants.vac_keys
             df[self.ann_keys[3]] = df[[ann_keys[3], ann_keys[4]]].sum(axis=1) 
