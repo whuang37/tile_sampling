@@ -32,7 +32,6 @@ class Application(tk.Frame):
         self.master = master
         tk.Frame.__init__(self, master)
         self.master.title("Tile Sampling")
-        
         self.finished_bools = Database(parent_dir).get_tiles()
         
         bools = [i[1] for i in self.finished_bools]
