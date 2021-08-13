@@ -278,6 +278,7 @@ class Database:
         df = self.all_annotations_df()
         total_annotated = df.values.sum()
         df =self.format_df(df)
+        print(df)
         
         # get the last x amount of tiles
         df = df.iloc[-constants.passed_tiles_req:, :]

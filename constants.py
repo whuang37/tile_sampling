@@ -22,3 +22,6 @@ large_circle_r = 9
 zoomed_small_circle_r = 23
 zoomed_large_circle_r = 45
 cursor_color = "red"
+
+#cursor, padding, colors, delete pie chart
+#also look at finished tile bug and completion bug brett was talking about
